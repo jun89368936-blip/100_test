@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx --version)",
+      "PowerShell(if \\(Test-Path \"$env:APPDATA\\\\Claude\\\\claude_desktop_config.json\"\\) { Get-Content \"$env:APPDATA\\\\Claude\\\\claude_desktop_config.json\" } else { \"파일 없음\" })",
+      "mcp__github__search_repositories",
+      "mcp__github__search_users",
+      "Bash(gh auth *)",
+      "mcp__github__list_commits",
+      "mcp__github__list_issues",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
+    ]
+  }
+}
