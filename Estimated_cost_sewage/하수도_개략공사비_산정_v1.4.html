@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>통합 하수도 개략공사비 산정 시스템</title>
+  <!-- React & Tailwind CDN -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useMemo, useEffect } = React;
+
+    // --- 1. 초기 시스템 기초 데이터 셋업 (전체 관경 및 누락 공종 100% 반영) ---
+    const INITIAL_DB = {
+      PIPE_DATA: {
+        "하수관로": {
+          "콘크리트관": {
+            "250": { "비포장": 625100, "포장": 1025100 },
+            "300": { "비포장": 679687, "포장": 1093274 },
+            "400": { "비포장": 755427, "포장": 1180403 },
+            "500": { "비포장": 870134, "포장": 1308085 },
+            "600": { "비포장": 970050, "포장": 1429475 },
+            "700": { "비포장": 1103768, "포장": 1577234 },
+            "800": { "비포장": 1233499, "포장": 1728595 },
+            "900": { "비포장": 1393783, "포장": 1902541 },
+            "1000": { "비포장": 1713843, "포장": 2235844 },
+            "1100": { "비포장": 1844879, "포장": 2426562 },
+            "1200": { "비포장": 2105150, "포장": 2728950 },
+            "1350": { "비포장": 2515200, "포장": 3205100 },
+            "1500": { "비포장": 2955300, "포장": 3715200 }
+          },
+          "플라스틱관": {
+            "150": { "비포장": 551010, "포장": 920471 },
+            "200": { "비포장": 601010, "포장": 990471 },
+            "250": { "비포장": 642150, "포장": 1045250 },
+            "300": { "비포장": 684556, "포장": 1098143 },
+            "400": { "비포장": 790044, "포장": 1215020 },
+            "500": { "비포장": 930610, "포장": 1368564 },
+            "600": { "비포장": 1047591, "포장": 1507017 },
+            "700": { "비포장": 1195723, "포장": 1669190 },
+            "800": { "비포장": 1338392, "포장": 1833486 },
+            "900": { "비포장": 1484765, "포장": 1993523 },
+            "1000": { "비포장": 1752410, "포장": 2351260 },
+            "1200": { "비포장": 2185200, "포장": 2895400 }
+          },
+          "강관": {
+            "200": { "비포장": 715340, "포장": 1112920 },
+            "250": { "비포장": 765340, "포장": 1172920 },
+            "300": { "비포장": 819341, "포장": 1232928 },
+            "400": { "비포장": 938316, "포장": 1363292 },
+            "500": { "비포장": 1131116, "포장": 1569068 },
+            "600": { "비포장": 1285276, "포장": 1744701 },
+            "700": { "비포장": 1485871, "포장": 1951330 },
+            "800": { "비포장": 1685871, "포장": 2181330 },
+            "900": { "비포장": 1895871, "포장": 2421330 },
+            "1000": { "비포장": 2155871, "포장": 2711330 },
+            "1100": { "비포장": 2425871, "포장": 3021330 },
+            "1200": { "비포장": 2715871, "포장": 3351330 }
+          },
+          "압송관로(주철관)": {
+            "80": { "비포장": 131731, "포장": 452797 },
+            "100": { "비포장": 145933, "포장": 471838 },
+            "150": { "비포장": 188001, "포장": 522938 },
+            "200": { "비포장": 227959, "포장": 572798 },
+            "250": { "비포장": 275150, "포장": 631850 },
+            "300": { "비포장": 327366, "포장": 691837 },
+            "400": { "비포장": 449507, "포장": 832777 },
+            "500": { "비포장": 578277, "포장": 979998 },
+            "600": { "비포장": 709811, "포장": 1134253 },
+            "700": { "비포장": 874628, "포장": 1317995 },
+            "800": { "비포장": 1054320, "포장": 1490037 },
+            "900": { "비포장": 1254320, "포장": 1720037 },
+            "1000": { "비포장": 1484320, "포장": 1980037 }
+          },
+          "사각형거(BOX 1련)": {
+            "H1.0×W1.0": { "비포장": 2450300, "포장": 2980500 },
+            "H1.2×W1.2": { "비포장": 3120400, "포장": 3650600 },
+            "H1.5×W1.5": { "비포장": 4150500, "포장": 4720700 },
+            "H1.5×W1.8": { "비포장": 4719349, "포장": 5301367 },
+            "H1.8×W1.8": { "비포장": 5179970, "포장": 5762204 },
+            "H1.5×W2.0": { "비포장": 5114111, "포장": 5766488 },
+            "H2.0×W2.0": { "비포장": 5690990, "포장": 6343473 },
+            "H1.5×W2.5": { "비포장": 5822829, "포장": 6546270 },
+            "H2.0×W2.5": { "비포장": 6543527, "포장": 7266861 },
+            "H2.5×W2.5": { "비포장": 7099245, "포장": 7822582 },
+            "H1.5×W3.0": { "비포장": 6621544, "포장": 7415351 },
+            "H2.0×W3.0": { "비포장": 7438522, "포장": 8232534 },
+            "H2.5×W3.0": { "비포장": 8105600, "포장": 8899800 },
+            "H3.0×W3.0": { "비포장": 8856700, "포장": 9651200 },
+            "H2.0×W4.0": { "비포장": 9210500, "포장": 10150600 },
+            "H2.5×W4.0": { "비포장": 10050800, "포장": 11020900 }
+          }
+        },
+        "차집관로": {
+          "콘크리트관": {
+            "250": { "비포장": 840023, "포장": 1259199 },
+            "300": { "비포장": 879265, "포장": 1315233 },
+            "400": { "비포장": 971689, "포장": 1418914 },
+            "500": { "비포장": 1037049, "포장": 1494882 },
+            "600": { "비포장": 1097030, "포장": 1561132 },
+            "700": { "비포장": 1266517, "포장": 1752635 },
+            "800": { "비포장": 1417662, "포장": 1914942 },
+            "900": { "비포장": 1560331, "포장": 2099470 },
+            "1000": { "비포장": 1764705, "포장": 2301957 },
+            "1100": { "비포장": 1898950, "포장": 2479280 },
+            "1200": { "비포장": 2173480, "포장": 2784210 },
+            "1350": { "비포장": 2537080, "포장": 3196330 }
+          },
+          "플라스틱관": {
+            "200": { "비포장": 780500, "포장": 1230506 },
+            "250": { "비포장": 849551, "포장": 1275853 },
+            "300": { "비포장": 899090, "포장": 1342468 },
+            "400": { "비포장": 1024156, "포장": 1478983 },
+            "500": { "비포장": 1178604, "포장": 1650594 },
+            "600": { "비포장": 1368844, "포장": 1863227 },
+            "700": { "비포장": 1537605, "포장": 2043330 },
+            "800": { "비포장": 1705188, "포장": 2235257 },
+            "900": { "비포장": 1889383, "포장": 2436367 },
+            "1000": { "비포장": 2224312, "포장": 2785362 },
+            "1200": { "비포장": 2664117, "포장": 3262484 }
+          },
+          "강관": {
+            "200": { "비포장": 950500, "포장": 1350500 },
+            "250": { "비포장": 1000500, "포장": 1400274 },
+            "300": { "비포장": 1034105, "포장": 1470183 },
+            "400": { "비포장": 1165400, "포장": 1619191 },
+            "500": { "비포장": 1377443, "포장": 1841561 },
+            "600": { "비포장": 1558600, "포장": 2084161 },
+            "700": { "비포장": 1790800, "포장": 2350376 },
+            "800": { "비포장": 2056973, "포장": 2578579 },
+            "900": { "비포장": 2341500, "포장": 2929051 },
+            "1000": { "비포장": 2704100, "포장": 3378321 },
+            "1100": { "비포장": 2971500, "포장": 3599330 },
+            "1200": { "비포장": 3261500, "포장": 3946074 }
+          },
+          "사각형거(BOX 1련)": {
+            "H1.0×W1.0": { "비포장": 2450300, "포장": 2980500 },
+            "H1.2×W1.2": { "비포장": 3120400, "포장": 3650600 },
+            "H1.5×W1.5": { "비포장": 4150500, "포장": 4720700 },
+            "H1.5×W1.8": { "비포장": 4719349, "포장": 5301367 },
+            "H1.8×W1.8": { "비포장": 5179970, "포장": 5762204 },
+            "H1.5×W2.0": { "비포장": 5114111, "포장": 5766488 },
+            "H2.0×W2.0": { "비포장": 5690990, "포장": 6343473 },
+            "H1.5×W2.5": { "비포장": 5822829, "포장": 6546270 },
+            "H2.0×W2.5": { "비포장": 6543527, "포장": 7266861 },
+            "H2.5×W2.5": { "비포장": 7099245, "포장": 7822582 },
+            "H1.5×W3.0": { "비포장": 6621544, "포장": 7415351 },
+            "H2.0×W3.0": { "비포장": 7438522, "포장": 8232534 },
+            "H2.5×W3.0": { "비포장": 8105600, "포장": 8899800 },
+            "H3.0×W3.0": { "비포장": 8856700, "포장": 9651200 },
+            "H2.0×W4.0": { "비포장": 9210500, "포장": 10150600 },
+            "H2.5×W4.0": { "비포장": 10050800, "포장": 11020900 }
+          }
+        }
+      },
+      WWTP_CAPACITIES: [500, 1000, 2000, 3000, 4000, 5000, 7500, 10000, 20000, 40000, 70000, 100000],
+      WWTP_PROCESSES: {
+        "전체 (합계)": [10126, 14155, 17611, 20732, 24550, 26219, 32923, 41618, 67318, 93009, 129728, 168268],
+        "침사 및 유입펌프장": [2745, 3377, 3989, 4087, 4241, 4407, 5453, 7158, 10931, 15328, 19160, 24819],
+        "생물반응조": [1278, 2099, 2624, 3231, 4192, 4537, 5906, 7113, 12974, 20317, 27162, 36459],
+        "이차침전지": [1235, 2059, 2348, 2988, 3337, 3458, 4180, 5080, 8690, 13788, 22559, 29349],
+        "소독 방류동": [623, 737, 976, 1085, 1276, 1309, 1733, 2311, 3962, 5352, 7169, 9188],
+        "찌꺼기 처리(농축/탈수 등)": [1811, 2774, 3126, 3508, 3604, 3703, 4259, 5463, 8613, 12260, 16334, 24446],
+        "기타시설(유량조정/부대 등)": [2434, 3109, 4548, 5833, 7900, 8805, 11392, 14493, 22448, 30964, 45344, 54007]
+      },
+      FEE_RATES: [
+        { cost: 0.5, basic: 3.35, detailed: 6.42, supervision: 14.44, incidental: 1.08 },
+        { cost: 1, basic: 3.19, detailed: 6.09, supervision: 14.44, incidental: 0.90 },
+        { cost: 2, basic: 2.69, detailed: 5.11, supervision: 14.44, incidental: 0.72 },
+        { cost: 3, basic: 2.53, detailed: 4.78, supervision: 14.44, incidental: 0.72 },
+        { cost: 5, basic: 2.36, detailed: 4.46, supervision: 14.44, incidental: 0.72 },
+        { cost: 10, basic: 2.17, detailed: 4.07, supervision: 14.44, incidental: 0.63 },
+        { cost: 20, basic: 1.97, detailed: 3.71, supervision: 14.44, incidental: 0.36 },
+        { cost: 30, basic: 1.88, detailed: 3.54, supervision: 14.44, incidental: 0.36 },
+        { cost: 50, basic: 1.80, detailed: 3.41, supervision: 14.44, incidental: 0.27 },
+        { cost: 100, basic: 1.71, detailed: 3.24, supervision: 11.80, incidental: 0.25 },
+        { cost: 200, basic: 1.61, detailed: 3.06, supervision: 8.97, incidental: 0.23 },
+        { cost: 300, basic: 1.57, detailed: 3.01, supervision: 7.62, incidental: 0.23 },
+        { cost: 500, basic: 1.50, detailed: 2.90, supervision: 6.07, incidental: 0.23 },
+        { cost: 1000, basic: 1.45, detailed: 2.79, supervision: 4.79, incidental: 0.23 },
+        { cost: 2000, basic: 1.39, detailed: 2.70, supervision: 3.79, incidental: 0.21 },
+        { cost: 3000, basic: 1.37, detailed: 2.64, supervision: 3.32, incidental: 0.19 },
+        { cost: 5000, basic: 1.32, detailed: 2.58, supervision: 2.82, incidental: 0.17 }
+      ]
+    };
+
+    function App() {
+      const [activeTab, setActiveTab] = useState('calculator');
+      const [costDB, setCostDB] = useState(INITIAL_DB);
+      const [estimateItems, setEstimateItems] = useState([]);
+      const [globalInflation, setGlobalInflation] = useState(1.0);
+      const [landCompensation, setLandCompensation] = useState('');
+
+      const [isUploading, setIsUploading] = useState(false);
+      const [uploadSuccess, setUploadSuccess] = useState(false);
+      const [dbJsonString, setDbJsonString] = useState(JSON.stringify(INITIAL_DB, null, 2));
+
+      const [mainCategory, setMainCategory] = useState('관로사업');
+      const [subCategory, setSubCategory] = useState('하수관로');
+      const [pipeType, setPipeType] = useState('');
+      const [pipeDiameter, setPipeDiameter] = useState('');
+      const [pipePavement, setPipePavement] = useState('');
+      const [paramValue, setParamValue] = useState('');
+      const [quantity, setQuantity] = useState('');
+      const [unitProcess, setUnitProcess] = useState('전체 (합계)');
+      const [methodFactor, setMethodFactor] = useState(1.0);
+
+      const CATEGORIES = {
+        '관로사업': ['하수관로', '차집관로'],
+        '하수처리시설': ['신설(50㎥/일 미만)', '신설(50~500㎥/일)', '신설(500㎥/일 이상)', '개량(고도처리)', '개량(악취-복개)', '개량(악취-탈취)'],
+        '펌프장 및 저류시설': ['오수펌프장', '빗물펌프장', '하수저류시설'],
+        '기타시설': ['배수설비', '노후관로 정밀조사']
+      };
+
+      useEffect(() => {
+        setSubCategory(CATEGORIES[mainCategory][0]);
+        resetForm();
+      }, [mainCategory]);
+
+      useEffect(() => resetForm(), [subCategory]);
+
+      const resetForm = () => {
+        setPipeType(''); setPipeDiameter(''); setPipePavement('');
+        setParamValue(''); setQuantity(''); setUnitProcess('전체 (합계)'); setMethodFactor(1.0);
+      };
+
+      const pipeTypes = ['하수관로', '차집관로'].includes(subCategory) ? Object.keys(costDB.PIPE_DATA[subCategory] || {}) : [];
+      const pipeDiameters = pipeType ? Object.keys(costDB.PIPE_DATA[subCategory]?.[pipeType] || {}) : [];
+      const pipePavements = pipeDiameter ? Object.keys(costDB.PIPE_DATA[subCategory]?.[pipeType]?.[pipeDiameter] || {}) : [];
+
+      useEffect(() => { if (pipeTypes.length > 0 && !pipeType) setPipeType(pipeTypes[0]); }, [pipeTypes, subCategory]);
+      useEffect(() => { if (pipeDiameters.length > 0 && !pipeDiameter) setPipeDiameter(pipeDiameters[0]); }, [pipeDiameters]);
+      useEffect(() => { if (pipePavements.length > 0 && !pipePavement) setPipePavement(pipePavements[0]); }, [pipePavements]);
+
+      const interpolateWWTPCost = (q, processName) => {
+        const caps = costDB.WWTP_CAPACITIES;
+        const costs = costDB.WWTP_PROCESSES[processName] || costDB.WWTP_PROCESSES["전체 (합계)"];
+
+        // 10만톤 초과 시 외삽(지수함수 자동 적용) 로직
+        if (q > caps[caps.length - 1]) {
+          const q1 = caps[caps.length - 2];
+          const q2 = caps[caps.length - 1];
+          const c1 = costs[costs.length - 2];
+          const c2 = costs[costs.length - 1];
+          const b = Math.log(c2 / c1) / Math.log(q2 / q1);
+          const a = c2 / Math.pow(q2, b);
+          return a * Math.pow(q, b);
+        }
+
+        if (q <= caps[0]) return costs[0];
+
+        // 직선 보간법
+        for (let i = 0; i < caps.length - 1; i++) {
+          if (q >= caps[i] && q <= caps[i+1]) {
+            return costs[i] + (costs[i+1] - costs[i]) * ((q - caps[i]) / (caps[i+1] - caps[i]));
+          }
+        }
+        return 0;
+      };
+
+      const currentUnitPrice = useMemo(() => {
+        const val = Number(paramValue) || 0;
+        const infl = Number(globalInflation) || 1.0;
+        const mFactor = Number(methodFactor) || 1.0;
+        let costInMillion = 0;
+
+        switch (subCategory) {
+          case '하수관로':
+          case '차집관로':
+            if (pipeType && pipeDiameter && pipePavement) {
+              return (costDB.PIPE_DATA[subCategory]?.[pipeType]?.[pipeDiameter]?.[pipePavement] || 0) * infl;
+            }
+            return 0;
+          case '오수펌프장': costInMillion = 22.928 * Math.pow(val, 0.296) * 1.44; break;
+          case '빗물펌프장': costInMillion = 504.19 * Math.pow(val, 0.4549) * 1.44; break;
+          case '하수저류시설': costInMillion = 3.6306 * Math.pow(val, 0.819) * 1.39; break;
+          case '신설(50㎥/일 미만)': costInMillion = 91.338 * Math.pow(val, 0.6777); break;
+          case '신설(50~500㎥/일)': costInMillion = 309.72 * Math.pow(val, 0.4398); break;
+          case '신설(500㎥/일 이상)': costInMillion = interpolateWWTPCost(val, unitProcess) * mFactor; break;
+          case '개량(고도처리)': costInMillion = 40.108 * Math.pow(val, 0.6); break;
+          case '개량(악취-복개)': costInMillion = 1.0133 * Math.pow(val, 0.978); break;
+          case '개량(악취-탈취)': costInMillion = 7.2943 * Math.pow(val, 0.6748); break;
+          case '배수설비': return 6210000 * infl;
+          case '노후관로 정밀조사': return 7210000 * infl;
+          default: return 0;
+        }
+        return val === 0 && !['배수설비', '노후관로 정밀조사'].includes(subCategory) ? 0 : Math.round(costInMillion * infl * 1000000);
+      }, [subCategory, pipeType, pipeDiameter, pipePavement, paramValue, globalInflation, unitProcess, methodFactor, costDB]);
+
+      const getQuantityUnit = () => {
+        if (mainCategory === '관로사업') return 'm';
+        if (subCategory === '배수설비') return '가구';
+        if (subCategory === '노후관로 정밀조사') return 'km';
+        return '개소';
+      };
+
+      const getUnitString = () => {
+        const qty = Number(quantity);
+        if (!qty || isNaN(qty) || qty <= 0) return alert("올바른 수량을 입력해주십시오.");
+
+        let specText = '';
+        let d1 = '', d2 = '', d3 = '';
+
+        if (mainCategory === '관로사업') {
+          const isBoxOrForceMain = pipeType.toUpperCase().includes('BOX') || pipeType.includes('압송관로');
+          const prefix = isBoxOrForceMain ? '' : 'D';
+          specText = `${pipeType} (${prefix}${pipeDiameter}, ${pipePavement})`;
+          d1 = pipeType;
+          d2 = isBoxOrForceMain ? pipeDiameter : `${prefix}${pipeDiameter}`;
+          d3 = pipePavement;
+        } else if (mainCategory !== '기타시설') {
+          if (!paramValue || isNaN(paramValue) || Number(paramValue) <= 0) return alert("제원을 입력해주십시오.");
+          specText = `Q=${paramValue}`;
+          d1 = `Q=${paramValue}`;
+          if (subCategory === '신설(500㎥/일 이상)') {
+            specText += ` / ${unitProcess} (보정: ${methodFactor})`;
+            d2 = unitProcess;
+            d3 = `보정:${methodFactor}`;
+          }
+        } else {
+          specText = '정액/고정단가 적용';
+          d1 = '정액단가';
+        }
+
+        setEstimateItems([...estimateItems, {
+          id: Date.now(),
+          mainCategory,
+          subCategory,
+          spec: specText,
+          d1, d2, d3,
+          quantity: qty,
+          unit: getQuantityUnit(),
+          unitPrice: currentUnitPrice,
+          totalPrice: currentUnitPrice * qty
+        }]);
+      };
+
+      const handleRemoveItem = (id) => setEstimateItems(estimateItems.filter(item => item.id !== id));
+      const formatNumber = (num) => new Intl.NumberFormat('ko-KR').format(Math.round(num));
+
+      const totalEstimatedCost = estimateItems.reduce((acc, curr) => acc + curr.totalPrice, 0);
+
+      const getInterpolatedRate = (costHundredMillion, type) => {
+        const ratesTable = costDB.FEE_RATES;
+        if (costHundredMillion <= ratesTable[0].cost) return ratesTable[0][type];
+        if (costHundredMillion >= ratesTable[ratesTable.length - 1].cost) return ratesTable[ratesTable.length - 1][type];
+        for (let i = 0; i < ratesTable.length - 1; i++) {
+          if (costHundredMillion >= ratesTable[i].cost && costHundredMillion <= ratesTable[i+1].cost) {
+            return ratesTable[i][type] + (ratesTable[i+1][type] - ratesTable[i][type]) * ((costHundredMillion - ratesTable[i].cost) / (ratesTable[i+1].cost - ratesTable[i].cost));
+          }
+        }
+        return 0;
+      };
+
+      const projectCostDetails = useMemo(() => {
+        const costInHundredMillion = totalEstimatedCost / 100000000;
+        const rates = {
+          basic: getInterpolatedRate(costInHundredMillion, 'basic'),
+          detailed: getInterpolatedRate(costInHundredMillion, 'detailed'),
+          supervision: getInterpolatedRate(costInHundredMillion, 'supervision'),
+          incidental: getInterpolatedRate(costInHundredMillion, 'incidental')
+        };
+        const fees = {
+          basic: totalEstimatedCost * (rates.basic / 100),
+          detailed: totalEstimatedCost * (rates.detailed / 100),
+          supervision: totalEstimatedCost * (rates.supervision / 100),
+          incidental: totalEstimatedCost * (rates.incidental / 100)
+        };
+        return { construction: totalEstimatedCost, rates, fees, totalFees: fees.basic + fees.detailed + fees.supervision + fees.incidental };
+      }, [totalEstimatedCost, costDB]);
+
+      const finalProjectTotal = projectCostDetails.construction + projectCostDetails.totalFees + (Number(landCompensation) || 0);
+
+      const exportToCSV = () => {
+        if (estimateItems.length === 0) return alert("출력할 내역이 없습니다.");
+
+        let csv = '﻿';
+        csv += '총사업비 산정\n';
+        const now = new Date();
+        const docDate = `${now.getFullYear()}.${now.getMonth() + 1}, 환경부`;
+        csv += `"◎ 산정근거 : 하수도분야 보조금 편성 및 집행관리 실무요령(${docDate})",,,,,,물가변동률,${globalInflation}\n`;
+        csv += '구분,,,,수량,단위,공사비(원),비고\n';
+
+        estimateItems.forEach(item => {
+          let c1 = item.mainCategory, c2 = item.subCategory, c3 = item.d1 || '', c4 = [item.d2, item.d3].filter(Boolean).join(' ');
+          if (item.mainCategory === '관로사업') {
+            c1 = item.subCategory; c2 = item.d1; c3 = item.d2; c4 = item.d3;
+          } else if (item.mainCategory === '하수처리시설') {
+            c1 = '공공하수처리시설'; c2 = item.subCategory.includes('신설') ? '신설' : '개량';
+            c3 = item.subCategory.replace(/(신설|개량)\(/, '').replace(/\)/, ''); c4 = [item.d1, item.d2, item.d3].filter(Boolean).join(' ');
+          }
+          csv += `"${c1}","${c2}","${c3}","${c4}",${item.quantity},"${item.unit}",${item.totalPrice},\n`;
+        });
+
+        csv += '\n[시설부대경비 및 총사업비]\n';
+        csv += '항목,,,,적용요율(%),,금액(원),비고\n';
+        csv += `"순 공사비",,,,"-",,"${projectCostDetails.construction}",\n`;
+        csv += `"기본설계비",,,,"${projectCostDetails.rates.basic.toFixed(3)}",,"${projectCostDetails.fees.basic}",\n`;
+        csv += `"실시설계비",,,,"${projectCostDetails.rates.detailed.toFixed(3)}",,"${projectCostDetails.fees.detailed}",\n`;
+        csv += `"전면 책임감리비(복잡)",,,,"${projectCostDetails.rates.supervision.toFixed(3)}",,"${projectCostDetails.fees.supervision}",\n`;
+        csv += `"시설부대비",,,,"${projectCostDetails.rates.incidental.toFixed(3)}",,"${projectCostDetails.fees.incidental}",\n`;
+        csv += `"용지보상비",,,,"-",,"${Number(landCompensation) || 0}",\n`;
+        csv += `"총사업비",,,,"-",,"${finalProjectTotal}",\n`;
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "총사업비_산정_내역.csv";
+        link.click();
+      };
+
+      const handleFileUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        setIsUploading(true);
+        setUploadSuccess(false);
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          setDbJsonString(ev.target.result);
+          setIsUploading(false);
+          setUploadSuccess(true);
+        };
+        reader.onerror = () => {
+          setIsUploading(false);
+          alert("파일을 읽는 중 오류가 발생했습니다.");
+        };
+        reader.readAsText(file, 'utf-8');
+      };
+
+      const handleSaveDB = () => {
+        try {
+          const parsed = JSON.parse(dbJsonString);
+          setCostDB(parsed);
+          alert("단가 DB가 성공적으로 업데이트 및 적용되었습니다.");
+        } catch (e) {
+          alert("오류: 추출된 데이터의 JSON 형식이 올바르지 않습니다. 구문을 확인해주십시오.");
+        }
+      };
+
+      return (
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">통합 하수도 개략공사비 산정 시스템</h1>
+              <p className="text-slate-500 mt-1 text-sm font-medium">10만톤 초과 처리시설 공식(지수함수 외삽) 자동 적용 엔진 반영</p>
+            </div>
+            <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+              <button onClick={() => setActiveTab('calculator')} className={`px-4 py-2 rounded-md text-sm font-bold transition-colors ${activeTab === 'calculator' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-600'}`}>🧮 공사비 산정</button>
+              <button onClick={() => setActiveTab('project_cost')} className={`px-4 py-2 rounded-md text-sm font-bold transition-colors ${activeTab === 'project_cost' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-600'}`}>📊 총사업비 출력</button>
+              <button onClick={() => setActiveTab('database')} className={`px-4 py-2 rounded-md text-sm font-bold transition-colors ${activeTab === 'database' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-600'}`}>🗄️ 단가 DB 관리</button>
+            </div>
+          </div>
+
+          {activeTab === 'calculator' && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 lg:col-span-4 h-fit">
+                <h2 className="text-lg font-bold border-b pb-3 mb-5 text-slate-800">공종 선택 및 제원 입력</h2>
+                <div className="space-y-4">
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold text-blue-800">적용 물가변동률</span>
+                      <input type="number" step="0.001" className="w-24 bg-white border border-blue-200 rounded px-2 py-1 text-sm font-bold text-slate-900 text-right" value={globalInflation} onChange={(e) => setGlobalInflation(e.target.value)} />
+                    </div>
+                    <a
+                      href="https://ecos.bok.or.kr/#/SearchStat"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-1.5 w-full bg-white border border-blue-300 hover:bg-blue-100 text-blue-700 text-xs font-bold py-1.5 rounded transition-colors"
+                    >
+                      🔗 한국은행 ECOS에서 물가지수 조회
+                    </a>
+                    <p className="text-xs text-slate-400 leading-snug">
+                      생산자물가지수 → 공산품 → 토목건설<br/>
+                      변동률 = 비교년월지수 ÷ 기준년월지수
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">사업 대분류</label>
+                    <select className="w-full border-slate-300 rounded-lg border p-2.5 outline-none text-sm font-medium" value={mainCategory} onChange={(e) => setMainCategory(e.target.value)}>
+                      {Object.keys(CATEGORIES).map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">세부 공종</label>
+                    <select className="w-full border-slate-300 rounded-lg border p-2.5 outline-none text-sm font-medium" value={subCategory} onChange={(e) => setSubCategory(e.target.value)}>
+                      {CATEGORIES[mainCategory].map(sub => <option key={sub} value={sub}>{sub}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-4">
+                    {mainCategory === '관로사업' ? (
+                      <>
+                        <div>
+                          <label className="block text-sm font-bold text-slate-700 mb-1">관종</label>
+                          <select className="w-full border-slate-300 rounded border p-2 text-sm font-bold text-blue-900" value={pipeType} onChange={e => setPipeType(e.target.value)}>
+                            {pipeTypes.map(pt => <option key={pt} value={pt}>{pt}</option>)}
+                          </select>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-1">관경/규격(mm, m*m)</label>
+                            <select className="w-full border-slate-300 rounded border p-2 text-sm" value={pipeDiameter} onChange={e => setPipeDiameter(e.target.value)}>
+                              {pipeDiameters.map(pd => <option key={pd} value={pd}>{pd}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-1">포장상태</label>
+                            <select className="w-full border-slate-300 rounded border p-2 text-sm" value={pipePavement} onChange={e => setPipePavement(e.target.value)}>
+                              {pipePavements.map(pv => <option key={pv} value={pv}>{pv}</option>)}
+                            </select>
+                          </div>
+                        </div>
+                      </>
+                    ) : mainCategory !== '기타시설' ? (
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-1">시설용량 및 제원</label>
+                        <input type="number" className="w-full border-slate-300 rounded border p-2 text-sm" placeholder="수치를 입력하세요" value={paramValue} onChange={e => setParamValue(e.target.value)} />
+
+                        {subCategory === '신설(500㎥/일 이상)' && (
+                          <div className="mt-4 pt-4 border-t border-slate-200 space-y-3">
+                            <div>
+                              <label className="block text-sm font-bold text-slate-700 mb-1">설치 시설물 (단위공정)</label>
+                              <select className="w-full border-slate-300 rounded border p-2 text-sm text-blue-900 font-medium bg-blue-50" value={unitProcess} onChange={e => setUnitProcess(e.target.value)}>
+                                {Object.keys(costDB.WWTP_PROCESSES).map(p => <option key={p} value={p}>{p}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-bold text-slate-700 mb-1">공법 보정계수 (MBR 등)</label>
+                              <input type="number" step="0.1" className="w-full border-slate-300 rounded border p-2 text-sm" placeholder="예: 1.2" value={methodFactor} onChange={e => setMethodFactor(e.target.value)} />
+                            </div>
+                            {Number(paramValue) > 100000 && (
+                              <p className="text-xs text-amber-600 font-bold mt-1 bg-amber-50 p-2 rounded">
+                                💡 10만㎥/일 초과 시설: 지침에 따라 7만~10만 구간의 추세 지수함수 공식(Y=aX^b)이 자동 외삽되어 연산됩니다.
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-slate-500 font-medium py-2">정액 단가가 적용됩니다.</div>
+                    )}
+                  </div>
+
+                  <div className="bg-slate-800 p-4 rounded-lg flex justify-between items-end text-white">
+                    <div>
+                      <div className="text-xs text-slate-300 mb-1">적용 산출 단가</div>
+                      <div className="text-xl font-bold">{formatNumber(currentUnitPrice)} <span className="text-sm font-normal">원</span></div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">적용 수량 ({getQuantityUnit()})</label>
+                    <input type="number" className="w-full border-slate-300 rounded-lg border p-2.5 outline-none text-sm font-bold" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+                  </div>
+
+                  <button onClick={getUnitString} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-md">➕ 내역서에 추가</button>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 lg:col-span-8 h-fit">
+                <div className="p-5 border-b bg-slate-50 flex justify-between items-center rounded-t-xl">
+                  <h2 className="text-lg font-bold text-slate-800">개략 공사비 산출 내역서</h2>
+                  <div className="text-sm font-bold">순공사비 소계: <span className="text-blue-700 text-2xl ml-2 font-mono">{formatNumber(totalEstimatedCost)}</span> 원</div>
+                </div>
+                <div className="overflow-x-auto min-h-[400px]">
+                  <table className="w-full text-sm text-left">
+                    <thead className="text-xs text-slate-700 bg-slate-100 border-b uppercase font-bold">
+                      <tr>
+                        <th className="px-4 py-3">공종</th>
+                        <th className="px-4 py-3">규격 및 제원</th>
+                        <th className="px-4 py-3 text-right">적용단가(원)</th>
+                        <th className="px-4 py-3 text-right">수량</th>
+                        <th className="px-4 py-3 text-right">금액(원)</th>
+                        <th className="px-4 py-3 text-center">삭제</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {estimateItems.length === 0 ? <tr><td colSpan="6" className="px-4 py-16 text-center text-slate-400 font-medium">산출 내역이 없습니다.</td></tr> : estimateItems.map((item) => (
+                        <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50">
+                          <td className="px-4 py-3 font-bold text-slate-800">{item.subCategory}</td>
+                          <td className="px-4 py-3 text-slate-600">{item.spec}</td>
+                          <td className="px-4 py-3 text-right text-slate-500 font-mono">{formatNumber(item.unitPrice)}</td>
+                          <td className="px-4 py-3 text-right text-slate-700 font-bold">{formatNumber(item.quantity)}</td>
+                          <td className="px-4 py-3 text-right font-bold text-blue-700 font-mono">{formatNumber(item.totalPrice)}</td>
+                          <td className="px-4 py-3 text-center"><button onClick={() => handleRemoveItem(item.id)} className="text-red-400 hover:text-red-600">🗑️</button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'project_cost' && (
+            <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
+              <div className="flex justify-between items-end border-b-2 border-slate-100 pb-4 mb-6">
+                <h2 className="text-xl font-bold text-slate-800">시설부대경비 및 총사업비 집계 내역</h2>
+                <button onClick={exportToCSV} className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-bold shadow-md">📥 엑셀(CSV) 다운로드</button>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                <table className="w-full text-sm text-left border border-slate-300">
+                  <thead className="text-xs text-slate-700 bg-slate-100 border-b border-slate-300 uppercase font-bold">
+                    <tr><th className="px-4 py-3">항목</th><th className="px-4 py-3 text-right">적용 요율</th><th className="px-4 py-3 text-right">금액 (원)</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b bg-blue-50/50"><td className="px-4 py-4 font-bold text-slate-800 text-base">순 공사비</td><td className="px-4 py-4 text-right text-slate-400">-</td><td className="px-4 py-4 text-right font-bold text-slate-900 font-mono text-base">{formatNumber(projectCostDetails.construction)}</td></tr>
+                    <tr className="border-b border-slate-100"><td className="px-4 py-3 font-bold text-slate-600 ml-4">기본설계비</td><td className="px-4 py-3 text-right text-slate-500">{projectCostDetails.rates.basic.toFixed(3)} %</td><td className="px-4 py-3 text-right font-mono text-slate-700">{formatNumber(projectCostDetails.fees.basic)}</td></tr>
+                    <tr className="border-b border-slate-100"><td className="px-4 py-3 font-bold text-slate-600 ml-4">실시설계비</td><td className="px-4 py-3 text-right text-slate-500">{projectCostDetails.rates.detailed.toFixed(3)} %</td><td className="px-4 py-3 text-right font-mono text-slate-700">{formatNumber(projectCostDetails.fees.detailed)}</td></tr>
+                    <tr className="border-b border-slate-100 bg-blue-50/20"><td className="px-4 py-3 font-bold text-blue-800 ml-4">전면 책임감리비(복잡)</td><td className="px-4 py-3 text-right text-blue-600 font-bold">{projectCostDetails.rates.supervision.toFixed(3)} %</td><td className="px-4 py-3 text-right font-mono text-slate-700">{formatNumber(projectCostDetails.fees.supervision)}</td></tr>
+                    <tr className="border-b-2 border-slate-300"><td className="px-4 py-3 font-bold text-slate-600 ml-4">시설부대비</td><td className="px-4 py-3 text-right text-slate-500">{projectCostDetails.rates.incidental.toFixed(3)} %</td><td className="px-4 py-3 text-right font-mono text-slate-700">{formatNumber(projectCostDetails.fees.incidental)}</td></tr>
+                    <tr className="bg-amber-50/40"><td className="px-4 py-4 font-bold text-slate-800">용지보상비 (입력)</td><td className="px-4 py-4 text-right text-amber-600 text-xs font-bold">수기 입력항목 ➔</td><td className="px-4 py-3 text-right"><input type="number" className="w-full bg-white border border-amber-200 rounded px-3 py-2 text-right font-mono font-bold text-slate-800 focus:outline-none focus:border-amber-400" placeholder="보상비 입력(원)" value={landCompensation} onChange={e => setLandCompensation(e.target.value)} /></td></tr>
+                  </tbody>
+                  <tfoot className="bg-slate-800 text-white">
+                    <tr><td className="px-4 py-5 text-center text-lg font-bold tracking-widest">총 사 업 비</td><td className="px-4 py-5"></td><td className="px-4 py-5 text-right font-mono text-2xl font-bold text-amber-400">{formatNumber(finalProjectTotal)}</td></tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'database' && (
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+              <div className="flex justify-between items-center border-b pb-3 mb-4">
+                <h2 className="text-lg font-bold text-slate-800">추출 데이터 검증 및 반영 (JSON)</h2>
+                <button onClick={handleSaveDB} className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-sm font-bold shadow-md">💾 DB 최종 반영</button>
+              </div>
+              <textarea className="w-full h-[500px] p-4 font-mono text-sm bg-slate-50 border border-slate-300 rounded-lg outline-none" value={dbJsonString} onChange={(e) => setDbJsonString(e.target.value)} />
+            </div>
+          )}
+        </div>
+      );
+    }
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
