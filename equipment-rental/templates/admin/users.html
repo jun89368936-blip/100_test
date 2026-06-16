@@ -51,6 +51,16 @@
         {% endif %}
       {% endwith %}
 
+      <!-- 명단 일괄 등록 -->
+      <div class="add-card" style="border-left:4px solid #7c3aed;margin-bottom:12px;">
+        <h3>📋 부서원 명단 일괄 등록</h3>
+        <p style="font-size:0.85rem;color:#64748b;margin:6px 0 12px;">물산업부문 명단 CSV에서 전체 부서원을 한 번에 등록합니다.<br>아이디 = 사번, 초기 비밀번호 = 사번 (이미 존재하는 계정은 건너뜁니다)</p>
+        <form method="post" action="/admin/users/seed"
+              onsubmit="return confirm('명단 CSV에서 부서원 전체를 일괄 등록하시겠습니까?')">
+          <button type="submit" class="btn btn-primary">🚀 명단 일괄 등록</button>
+        </form>
+      </div>
+
       <!-- 계정 추가 -->
       <div class="add-card">
         <h3>➕ 부서원 계정 추가</h3>

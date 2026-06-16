@@ -457,6 +457,36 @@ def admin_delete_all_rentals():
     return redirect(url_for("admin_rentals"))
 
 
+@app.route("/admin/users/seed", methods=["POST"])
+@admin_required
+def admin_seed_users():
+    import csv as _csv
+    csv_path = os.path.join(os.path.dirname(__file__), "명단_utf8.csv")
+    if not os.path.exists(csv_path):
+        flash("명단 CSV 파일이 없습니다.", "error")
+        return redirect(url_for("admin_users"))
+    conn = get_db()
+    added = skipped = 0
+    with open(csv_path, encoding="utf-8") as f:
+        for row in _csv.DictReader(f):
+            sabun = row.get("사번", "").strip()
+            name = row.get("성명", "").strip()
+            if not sabun or not name:
+                continue
+            if conn.execute("SELECT id FROM users WHERE username = ?", (sabun,)).fetchone():
+                skipped += 1
+                continue
+            conn.execute(
+                "INSERT INTO users (username, password_hash, display_name) VALUES (?, ?, ?)",
+                (sabun, generate_password_hash(sabun), name),
+            )
+            added += 1
+    conn.commit()
+    conn.close()
+    flash(f"부서원 등록 완료: {added}명 추가, {skipped}명 중복 건너뜀", "success")
+    return redirect(url_for("admin_users"))
+
+
 @app.route("/admin/users")
 @admin_required
 def admin_users():
