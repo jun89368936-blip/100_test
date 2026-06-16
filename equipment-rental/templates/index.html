@@ -28,7 +28,11 @@
   <div class="main">
     <div class="topbar">
       <h2>대여 현황</h2>
-      <span style="font-size:0.85rem;color:#64748b;">{{ today }}</span>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span style="font-size:0.85rem;color:#64748b;">{{ today }}</span>
+        <span style="font-size:0.85rem;color:#1e293b;font-weight:600;">👤 {{ session.display_name }}</span>
+        <a href="/logout" style="font-size:0.82rem;color:#64748b;text-decoration:none;border:1px solid #e2e8f0;padding:4px 10px;border-radius:6px;">로그아웃</a>
+      </div>
     </div>
 
     <div class="page-content">
@@ -116,8 +120,7 @@
             </div>
           {% else %}
             <form method="post" action="/rent/{{ item.id }}" class="rent-form">
-              <input class="input-field" type="text" name="borrower_name" placeholder="대여자 이름" required style="width:100%">
-              <div class="rent-form-row" style="margin-top:8px;">
+              <div class="rent-form-row" style="margin-top:0;">
                 <div style="flex:1">
                   <label style="font-size:0.78rem;color:#64748b;margin-bottom:3px;display:block;">대여일</label>
                   <input class="input-field" type="date" name="rented_at" value="{{ today }}" required style="width:100%">

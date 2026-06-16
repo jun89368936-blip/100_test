@@ -92,6 +92,14 @@ def init_db():
                 due_date      TEXT
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id           SERIAL PRIMARY KEY,
+                username     TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                display_name TEXT NOT NULL
+            )
+        """)
     else:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS items (
@@ -109,6 +117,14 @@ def init_db():
                 returned_at   TEXT,
                 due_date      TEXT,
                 FOREIGN KEY(item_id) REFERENCES items(id)
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                username      TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                display_name  TEXT NOT NULL
             )
         """)
     # 기존 유니크 인덱스 제거 (날짜 범위 겹침 체크로 대체)

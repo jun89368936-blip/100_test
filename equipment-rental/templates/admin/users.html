@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>부서원 관리</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .admin-sidebar { background: #1a0533; }
+    .admin-badge { background:#7c3aed; color:#fff; font-size:0.7rem; padding:2px 7px; border-radius:10px; margin-left:6px; vertical-align:middle; }
+    .admin-nav-section { font-size:0.7rem; color:#a78bfa; text-transform:uppercase; letter-spacing:.08em; padding:18px 20px 6px; }
+    .reset-form { display:inline-flex; gap:6px; align-items:center; }
+    .reset-input { padding:4px 8px; border:1px solid #e2e8f0; border-radius:6px; font-size:0.82rem; width:120px; }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <aside class="sidebar admin-sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-icon">🛡️</span>
+      <h1>관리자<br>모드</h1>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="admin-nav-section">관리</div>
+      <a href="/admin" class="nav-item"><span class="icon">📊</span> 대시보드</a>
+      <a href="/admin/items" class="nav-item"><span class="icon">📦</span> 물품 관리</a>
+      <a href="/admin/rentals" class="nav-item"><span class="icon">📋</span> 대여 관리</a>
+      <a href="/admin/users" class="nav-item active"><span class="icon">👥</span> 부서원 관리</a>
+      <div class="admin-nav-section">이동</div>
+      <a href="/" class="nav-item"><span class="icon">🏠</span> 일반 화면</a>
+      <a href="/admin/logout" class="nav-item"><span class="icon">🔓</span> 로그아웃</a>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <h2>부서원 관리 <span class="admin-badge">ADMIN</span></h2>
+      <span style="font-size:0.85rem;color:#64748b;">총 {{ users|length }}명</span>
+    </div>
+
+    <div class="page-content">
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-wrap">
+            {% for category, message in messages %}
+              <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <!-- 계정 추가 -->
+      <div class="add-card">
+        <h3>➕ 부서원 계정 추가</h3>
+        <form method="post" action="/admin/users/add" class="add-form-row" style="flex-wrap:wrap;gap:8px;">
+          <input class="input-field" type="text" name="username" placeholder="아이디 (영문/숫자)" required style="flex:1;min-width:120px;">
+          <input class="input-field" type="text" name="display_name" placeholder="이름 (표시용)" required style="flex:1;min-width:100px;">
+          <input class="input-field" type="password" name="password" placeholder="초기 비밀번호" required style="flex:1;min-width:120px;">
+          <button type="submit" class="btn btn-primary" style="align-self:flex-end;">추가</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>No.</th>
+              <th>아이디</th>
+              <th>이름</th>
+              <th>비밀번호 재설정</th>
+              <th>작업</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for u in users %}
+            <tr>
+              <td style="color:#94a3b8;font-size:0.82rem;">{{ loop.index }}</td>
+              <td><code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;">{{ u.username }}</code></td>
+              <td><strong>{{ u.display_name }}</strong></td>
+              <td>
+                <form method="post" action="/admin/users/reset-password/{{ u.id }}" class="reset-form">
+                  <input class="reset-input" type="password" name="new_password" placeholder="새 비밀번호" required>
+                  <button type="submit" class="btn" style="padding:5px 10px;font-size:0.8rem;border:1.5px solid #7c3aed;color:#7c3aed;background:#fff;">변경</button>
+                </form>
+              </td>
+              <td>
+                <form method="post" action="/admin/users/delete/{{ u.id }}"
+                      onsubmit="return confirm('{{ u.display_name }} 계정을 삭제하시겠습니까?')">
+                  <button type="submit" class="btn btn-danger" style="padding:5px 10px;font-size:0.8rem;">삭제</button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:32px;">등록된 부서원이 없습니다.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from datetime import datetime, date
 from db import init_db, get_db, INTEGRITY_ERROR
 from telegram_notify import notify_rent, notify_return
+from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 import os
 import threading
@@ -11,7 +12,7 @@ import requests as _requests
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = "rental-secret-key-change-in-prod"
+app.secret_key = os.getenv("SECRET_KEY", "rental-secret-key-change-in-prod")
 
 
 def _keep_alive():
@@ -30,6 +31,16 @@ def _keep_alive():
 
 threading.Thread(target=_keep_alive, daemon=True).start()
 ADMIN_PIN = os.getenv("ADMIN_PIN", "1234")
+
+
+def login_required(f):
+    from functools import wraps
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("user_id"):
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated
 
 
 def admin_required(f):
@@ -61,12 +72,40 @@ def health():
     return "ok", 200
 
 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if session.get("user_id"):
+        return redirect(url_for("index"))
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "").strip()
+        conn = get_db()
+        user = conn.execute(
+            "SELECT * FROM users WHERE username = ?", (username,)
+        ).fetchone()
+        conn.close()
+        if user and check_password_hash(user["password_hash"], password):
+            session["user_id"] = user["id"]
+            session["display_name"] = user["display_name"]
+            return redirect(url_for("index"))
+        flash("아이디 또는 비밀번호가 올바르지 않습니다.", "error")
+    return render_template("login.html")
+
+
+@app.route("/logout")
+def logout():
+    session.pop("user_id", None)
+    session.pop("display_name", None)
+    return redirect(url_for("login"))
+
+
 @app.before_request
 def startup():
     init_db()
 
 
 @app.route("/")
+@login_required
 def index():
     today = date.today().isoformat()
     conn = get_db()
@@ -87,6 +126,7 @@ def index():
 
 
 @app.route("/calendar")
+@login_required
 def calendar_view():
     conn = get_db()
     items = conn.execute("SELECT * FROM items ORDER BY id").fetchall()
@@ -95,6 +135,7 @@ def calendar_view():
 
 
 @app.route("/api/events")
+@login_required
 def api_events():
     conn = get_db()
     rows = conn.execute("""
@@ -132,13 +173,14 @@ def api_events():
 
 
 @app.route("/rent/<int:item_id>", methods=["POST"])
+@login_required
 def rent(item_id):
-    borrower_name = request.form.get("borrower_name", "").strip()
+    borrower_name = session.get("display_name", "")
     rented_at = request.form.get("rented_at", "").strip()
     due_date = request.form.get("due_date", "").strip()
     if not borrower_name:
-        flash("이름을 입력해주세요.", "error")
-        return redirect(url_for("index"))
+        flash("로그인이 필요합니다.", "error")
+        return redirect(url_for("login"))
     if not rented_at:
         flash("대여일을 선택해주세요.", "error")
         return redirect(url_for("index"))
@@ -177,6 +219,7 @@ def rent(item_id):
 
 
 @app.route("/return/<int:item_id>", methods=["POST"])
+@login_required
 def return_item(item_id):
     conn = get_db()
     returned_at = datetime.now().isoformat(timespec="seconds")
@@ -406,6 +449,69 @@ def admin_delete_all_rentals():
     return redirect(url_for("admin_rentals"))
 
 
+@app.route("/admin/users")
+@admin_required
+def admin_users():
+    conn = get_db()
+    users = conn.execute("SELECT id, username, display_name FROM users ORDER BY id").fetchall()
+    conn.close()
+    return render_template("admin/users.html", users=users)
+
+
+@app.route("/admin/users/add", methods=["POST"])
+@admin_required
+def admin_add_user():
+    username = request.form.get("username", "").strip()
+    display_name = request.form.get("display_name", "").strip()
+    password = request.form.get("password", "").strip()
+    if not username or not display_name or not password:
+        flash("모든 항목을 입력해주세요.", "error")
+        return redirect(url_for("admin_users"))
+    pw_hash = generate_password_hash(password)
+    conn = get_db()
+    try:
+        conn.execute(
+            "INSERT INTO users (username, password_hash, display_name) VALUES (?, ?, ?)",
+            (username, pw_hash, display_name),
+        )
+        conn.commit()
+        flash(f"'{display_name}' 계정이 추가되었습니다.", "success")
+    except INTEGRITY_ERROR:
+        flash(f"이미 존재하는 아이디입니다: {username}", "error")
+    finally:
+        conn.close()
+    return redirect(url_for("admin_users"))
+
+
+@app.route("/admin/users/delete/<int:user_id>", methods=["POST"])
+@admin_required
+def admin_delete_user(user_id):
+    conn = get_db()
+    user = conn.execute("SELECT display_name FROM users WHERE id = ?", (user_id,)).fetchone()
+    conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    conn.commit()
+    conn.close()
+    if user:
+        flash(f"'{user['display_name']}' 계정이 삭제되었습니다.", "success")
+    return redirect(url_for("admin_users"))
+
+
+@app.route("/admin/users/reset-password/<int:user_id>", methods=["POST"])
+@admin_required
+def admin_reset_password(user_id):
+    new_password = request.form.get("new_password", "").strip()
+    if not new_password:
+        flash("새 비밀번호를 입력해주세요.", "error")
+        return redirect(url_for("admin_users"))
+    pw_hash = generate_password_hash(new_password)
+    conn = get_db()
+    conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (pw_hash, user_id))
+    conn.commit()
+    conn.close()
+    flash("비밀번호가 변경되었습니다.", "success")
+    return redirect(url_for("admin_users"))
+
+
 # 기존 /manage 경로 하위 호환 유지
 @app.route("/manage")
 @admin_required
@@ -414,6 +520,7 @@ def manage():
 
 
 @app.route("/history")
+@login_required
 def history():
     conn = get_db()
     rows = conn.execute("""
@@ -433,6 +540,7 @@ def history():
 
 
 @app.route("/history/export")
+@login_required
 def history_export():
     import io
     from flask import send_file
