@@ -24,6 +24,18 @@ def admin_required(f):
 ITEM_COLORS = ["#3788d8", "#e67e22", "#27ae60", "#8e44ad", "#c0392b"]
 
 
+@app.template_filter("fmt_date")
+def fmt_date(value):
+    if not value:
+        return "—"
+    try:
+        from datetime import datetime as dt
+        d = dt.fromisoformat(str(value)[:10])
+        return f"{d.year % 100:02d}년 {d.month:02d}월 {d.day:02d}일"
+    except Exception:
+        return value
+
+
 @app.before_request
 def startup():
     init_db()
@@ -94,24 +106,30 @@ def api_events():
 @app.route("/rent/<int:item_id>", methods=["POST"])
 def rent(item_id):
     borrower_name = request.form.get("borrower_name", "").strip()
+    rented_at = request.form.get("rented_at", "").strip()
     due_date = request.form.get("due_date", "").strip()
     if not borrower_name:
-        flash("이름을 입력해주세요.")
+        flash("이름을 입력해주세요.", "error")
+        return redirect(url_for("index"))
+    if not rented_at:
+        flash("대여일을 선택해주세요.", "error")
+        return redirect(url_for("index"))
+    if not due_date:
+        flash("반납일을 선택해주세요.", "error")
         return redirect(url_for("index"))
 
     conn = get_db()
     try:
-        rented_at = datetime.now().isoformat(timespec="seconds")
         conn.execute(
             "INSERT INTO rentals (item_id, borrower_name, rented_at, due_date) VALUES (?, ?, ?, ?)",
-            (item_id, borrower_name, rented_at, due_date or None),
+            (item_id, borrower_name, rented_at, due_date),
         )
         conn.commit()
         item = conn.execute("SELECT name FROM items WHERE id = ?", (item_id,)).fetchone()
-        flash("대여가 완료되었습니다.")
+        flash("대여가 완료되었습니다.", "success")
         notify_rent(item["name"], borrower_name, rented_at)
     except INTEGRITY_ERROR:
-        flash("이미 대여 중인 물품입니다.")
+        flash("이미 대여 중인 물품입니다.", "error")
     finally:
         conn.close()
 
@@ -252,13 +270,13 @@ def admin_rentals():
 def admin_add_rental():
     item_id = request.form.get("item_id", "").strip()
     borrower_name = request.form.get("borrower_name", "").strip()
+    rented_at = request.form.get("rented_at", "").strip() or date.today().isoformat()
     due_date = request.form.get("due_date", "").strip()
     if not item_id or not borrower_name:
         flash("물품과 대여자 이름을 입력해주세요.", "error")
         return redirect(url_for("admin_rentals"))
     conn = get_db()
     try:
-        rented_at = datetime.now().isoformat(timespec="seconds")
         conn.execute(
             "INSERT INTO rentals (item_id, borrower_name, rented_at, due_date) VALUES (?, ?, ?, ?)",
             (item_id, borrower_name, rented_at, due_date or None),

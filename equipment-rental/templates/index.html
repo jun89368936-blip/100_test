@@ -104,8 +104,9 @@
           {% if item.current_borrower %}
             <div class="borrower-info">
               <div class="borrower-name">👤 {{ item.current_borrower }}</div>
+              <div class="due-date">📅 대여일: {{ item.current_rented_at | fmt_date }}</div>
               {% if item.current_due_date %}
-                <div class="due-date">📅 반납 예정일: {{ item.current_due_date }}</div>
+                <div class="due-date">🔔 반납 예정일: {{ item.current_due_date | fmt_date }}</div>
               {% endif %}
             </div>
             <div class="item-card-footer">
@@ -115,11 +116,18 @@
             </div>
           {% else %}
             <form method="post" action="/rent/{{ item.id }}" class="rent-form">
-              <div class="rent-form-row">
-                <input class="input-field" type="text" name="borrower_name" placeholder="대여자 이름" required>
-                <input class="input-field" type="date" name="due_date" min="{{ today }}" title="반납 예정일" style="width:150px">
+              <input class="input-field" type="text" name="borrower_name" placeholder="대여자 이름" required style="width:100%">
+              <div class="rent-form-row" style="margin-top:8px;">
+                <div style="flex:1">
+                  <label style="font-size:0.78rem;color:#64748b;margin-bottom:3px;display:block;">대여일</label>
+                  <input class="input-field" type="date" name="rented_at" value="{{ today }}" required style="width:100%">
+                </div>
+                <div style="flex:1">
+                  <label style="font-size:0.78rem;color:#64748b;margin-bottom:3px;display:block;">반납일</label>
+                  <input class="input-field" type="date" name="due_date" min="{{ today }}" required style="width:100%">
+                </div>
               </div>
-              <button type="submit" class="btn btn-primary" style="width:100%">📤 대여하기</button>
+              <button type="submit" class="btn btn-primary" style="width:100%;margin-top:8px;">📤 대여하기</button>
             </form>
           {% endif %}
         </div>

@@ -91,10 +91,10 @@
             <tr>
               <td><strong>{{ r.item_name }}</strong></td>
               <td>{{ r.borrower_name }}</td>
-              <td style="font-size:0.83rem;color:#64748b;">{{ r.rented_at }}</td>
+              <td style="font-size:0.83rem;color:#64748b;">{{ r.rented_at | fmt_date }}</td>
               <td style="font-size:0.83rem;">
                 {% if r.due_date %}
-                  {{ r.due_date }}
+                  {{ r.due_date | fmt_date }}
                 {% else %}
                   <span style="color:#94a3b8;">—</span>
                 {% endif %}
