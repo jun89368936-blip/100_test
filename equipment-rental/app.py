@@ -108,6 +108,7 @@ def startup():
 @login_required
 def index():
     today = date.today().isoformat()
+    display_name = session.get("display_name", "")
     conn = get_db()
     items = conn.execute("""
         SELECT i.*,
@@ -121,8 +122,15 @@ def index():
               AND r.rented_at <= ?
               AND (r.due_date IS NULL OR r.due_date > ?)
     """, (today, today)).fetchall()
+    my_rentals = conn.execute("""
+        SELECT r.id, r.item_id, i.name AS item_name, i.type AS item_type,
+               r.rented_at, r.due_date
+        FROM rentals r JOIN items i ON i.id = r.item_id
+        WHERE r.borrower_name = ? AND r.returned_at IS NULL
+        ORDER BY r.due_date ASC
+    """, (display_name,)).fetchall()
     conn.close()
-    return render_template("index.html", items=items, today=today)
+    return render_template("index.html", items=items, today=today, my_rentals=my_rentals)
 
 
 @app.route("/calendar")
