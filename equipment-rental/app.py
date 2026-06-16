@@ -99,6 +99,39 @@ def logout():
     return redirect(url_for("login"))
 
 
+@app.route("/profile/change-password", methods=["GET", "POST"])
+@login_required
+def change_password():
+    if request.method == "POST":
+        current = request.form.get("current_password", "").strip()
+        new_pw = request.form.get("new_password", "").strip()
+        confirm = request.form.get("confirm_password", "").strip()
+        if not current or not new_pw or not confirm:
+            flash("모든 항목을 입력해주세요.", "error")
+            return redirect(url_for("change_password"))
+        if new_pw != confirm:
+            flash("새 비밀번호가 일치하지 않습니다.", "error")
+            return redirect(url_for("change_password"))
+        if len(new_pw) < 4:
+            flash("비밀번호는 4자리 이상이어야 합니다.", "error")
+            return redirect(url_for("change_password"))
+        conn = get_db()
+        user = conn.execute("SELECT * FROM users WHERE id = ?", (session["user_id"],)).fetchone()
+        if not user or not check_password_hash(user["password_hash"], current):
+            conn.close()
+            flash("현재 비밀번호가 올바르지 않습니다.", "error")
+            return redirect(url_for("change_password"))
+        conn.execute(
+            "UPDATE users SET password_hash = ? WHERE id = ?",
+            (generate_password_hash(new_pw), session["user_id"]),
+        )
+        conn.commit()
+        conn.close()
+        flash("비밀번호가 변경되었습니다.", "success")
+        return redirect(url_for("index"))
+    return render_template("change_password.html")
+
+
 @app.before_request
 def startup():
     init_db()
