@@ -4,11 +4,31 @@ from db import init_db, get_db, INTEGRITY_ERROR
 from telegram_notify import notify_rent, notify_return
 from dotenv import load_dotenv
 import os
+import threading
+import time
+import requests as _requests
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = "rental-secret-key-change-in-prod"
+
+
+def _keep_alive():
+    """Render 무료 플랜 cold start 방지: 4분마다 자기 자신에게 핑"""
+    time.sleep(60)  # 앱 완전 기동 대기
+    base = os.getenv("RENDER_EXTERNAL_URL", "")
+    if not base:
+        return  # 로컬에서는 실행 안 함
+    while True:
+        try:
+            _requests.get(f"{base}/health", timeout=10)
+        except Exception:
+            pass
+        time.sleep(240)  # 4분 간격
+
+
+threading.Thread(target=_keep_alive, daemon=True).start()
 ADMIN_PIN = os.getenv("ADMIN_PIN", "1234")
 
 
@@ -34,6 +54,11 @@ def fmt_date(value):
         return f"{d.year % 100:02d}년 {d.month:02d}월 {d.day:02d}일"
     except Exception:
         return value
+
+
+@app.route("/health")
+def health():
+    return "ok", 200
 
 
 @app.before_request
