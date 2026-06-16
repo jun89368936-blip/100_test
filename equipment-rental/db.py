@@ -111,10 +111,11 @@ def init_db():
                 FOREIGN KEY(item_id) REFERENCES items(id)
             )
         """)
-    conn.execute("""
-        CREATE UNIQUE INDEX IF NOT EXISTS ux_active_rental
-        ON rentals(item_id) WHERE returned_at IS NULL
-    """)
+    # 기존 유니크 인덱스 제거 (날짜 범위 겹침 체크로 대체)
+    try:
+        conn.execute("DROP INDEX IF EXISTS ux_active_rental")
+    except Exception:
+        pass
     conn.commit()
     conn.close()
 

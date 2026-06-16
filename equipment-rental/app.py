@@ -43,6 +43,7 @@ def startup():
 
 @app.route("/")
 def index():
+    today = date.today().isoformat()
     conn = get_db()
     items = conn.execute("""
         SELECT i.*,
@@ -53,9 +54,11 @@ def index():
         LEFT JOIN rentals r
                ON r.item_id = i.id
               AND r.returned_at IS NULL
-    """).fetchall()
+              AND r.rented_at <= ?
+              AND (r.due_date IS NULL OR r.due_date > ?)
+    """, (today, today)).fetchall()
     conn.close()
-    return render_template("index.html", items=items, today=date.today().isoformat())
+    return render_template("index.html", items=items, today=today)
 
 
 @app.route("/calendar")
@@ -119,6 +122,18 @@ def rent(item_id):
         return redirect(url_for("index"))
 
     conn = get_db()
+    # 날짜 범위 겹침 체크 (반납예정일 당일은 새 대여 허용)
+    conflict = conn.execute("""
+        SELECT COUNT(*) FROM rentals
+        WHERE item_id = ?
+          AND returned_at IS NULL
+          AND rented_at < ?
+          AND (due_date IS NULL OR due_date > ?)
+    """, (item_id, due_date, rented_at)).fetchone()[0]
+    if conflict:
+        flash("해당 기간에 이미 대여 중인 물품입니다.", "error")
+        conn.close()
+        return redirect(url_for("index"))
     try:
         conn.execute(
             "INSERT INTO rentals (item_id, borrower_name, rented_at, due_date) VALUES (?, ?, ?, ?)",
@@ -128,8 +143,8 @@ def rent(item_id):
         item = conn.execute("SELECT name FROM items WHERE id = ?", (item_id,)).fetchone()
         flash("대여가 완료되었습니다.", "success")
         notify_rent(item["name"], borrower_name, rented_at)
-    except INTEGRITY_ERROR:
-        flash("이미 대여 중인 물품입니다.", "error")
+    except Exception:
+        flash("대여 처리 중 오류가 발생했습니다.", "error")
     finally:
         conn.close()
 
@@ -199,11 +214,14 @@ def admin_dashboard():
 @admin_required
 def admin_items():
     conn = get_db()
+    today = date.today().isoformat()
     items = conn.execute("""
         SELECT i.*,
-               (SELECT COUNT(*) FROM rentals r WHERE r.item_id = i.id AND r.returned_at IS NULL) AS is_rented
+               (SELECT COUNT(*) FROM rentals r
+                WHERE r.item_id = i.id AND r.returned_at IS NULL
+                  AND r.rented_at <= ? AND (r.due_date IS NULL OR r.due_date > ?)) AS is_rented
         FROM items i ORDER BY i.id
-    """).fetchall()
+    """, (today, today)).fetchall()
     conn.close()
     return render_template("admin/items.html", items=items)
 
@@ -276,6 +294,17 @@ def admin_add_rental():
         flash("물품과 대여자 이름을 입력해주세요.", "error")
         return redirect(url_for("admin_rentals"))
     conn = get_db()
+    conflict = conn.execute("""
+        SELECT COUNT(*) FROM rentals
+        WHERE item_id = ?
+          AND returned_at IS NULL
+          AND rented_at < ?
+          AND (due_date IS NULL OR due_date > ?)
+    """, (item_id, due_date or "9999-12-31", rented_at)).fetchone()[0]
+    if conflict:
+        flash("해당 기간에 이미 대여 중인 물품입니다.", "error")
+        conn.close()
+        return redirect(url_for("admin_rentals"))
     try:
         conn.execute(
             "INSERT INTO rentals (item_id, borrower_name, rented_at, due_date) VALUES (?, ?, ?, ?)",
@@ -285,8 +314,8 @@ def admin_add_rental():
         item = conn.execute("SELECT name FROM items WHERE id = ?", (item_id,)).fetchone()
         flash(f"'{item['name']}' 대여가 등록되었습니다.", "success")
         notify_rent(item["name"], borrower_name, rented_at)
-    except INTEGRITY_ERROR:
-        flash("이미 대여 중인 물품입니다.", "error")
+    except Exception:
+        flash("대여 처리 중 오류가 발생했습니다.", "error")
     finally:
         conn.close()
     return redirect(url_for("admin_rentals"))
