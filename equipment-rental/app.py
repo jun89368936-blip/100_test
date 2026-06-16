@@ -463,20 +463,23 @@ _MEMBERS = [['203108', '류재남'], ['221247', '정용선'], ['221313', '강정
 @app.route("/admin/users/seed", methods=["POST"])
 @admin_required
 def admin_seed_users():
-    conn = get_db()
-    added = skipped = 0
-    for sabun, name in _MEMBERS:
-        if conn.execute("SELECT id FROM users WHERE username = ?", (sabun,)).fetchone():
-            skipped += 1
-            continue
-        conn.execute(
-            "INSERT INTO users (username, password_hash, display_name) VALUES (?, ?, ?)",
-            (sabun, generate_password_hash(sabun), name),
-        )
-        added += 1
-    conn.commit()
-    conn.close()
-    flash(f"부서원 등록 완료: {added}명 추가, {skipped}명 중복 건너뜀", "success")
+    try:
+        conn = get_db()
+        added = skipped = 0
+        for sabun, name in _MEMBERS:
+            if conn.execute("SELECT id FROM users WHERE username = ?", (sabun,)).fetchone():
+                skipped += 1
+                continue
+            conn.execute(
+                "INSERT INTO users (username, password_hash, display_name) VALUES (?, ?, ?)",
+                (sabun, generate_password_hash(sabun), name),
+            )
+            added += 1
+        conn.commit()
+        conn.close()
+        flash(f"부서원 등록 완료: {added}명 추가, {skipped}명 중복 건너뜀", "success")
+    except Exception as e:
+        flash(f"오류 발생: {e}", "error")
     return redirect(url_for("admin_users"))
 
 
