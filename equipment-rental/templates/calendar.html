@@ -27,7 +27,7 @@
       <a href="/" class="nav-item"><span class="icon">🏠</span> 대여 현황</a>
       <a href="/calendar" class="nav-item active"><span class="icon">📅</span> 달력 보기</a>
       <a href="/history" class="nav-item"><span class="icon">📋</span> 대여 이력</a>
-      <a href="/admin" class="nav-item"><span class="icon">🔐</span> 관리자 모드</a>
+      {% if session.is_admin %}<a href="/admin" class="nav-item"><span class="icon">🔐</span> 관리자 모드</a>{% endif %}
       <a href="/qr" class="nav-item"><span class="icon">📱</span> QR 코드</a>
     </nav>
   </aside>
