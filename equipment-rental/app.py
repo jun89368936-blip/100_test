@@ -350,6 +350,108 @@ def history():
     return render_template("history.html", rows=rows)
 
 
+@app.route("/history/export")
+def history_export():
+    import io
+    from flask import send_file
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT r.id, i.name AS item_name, i.type AS item_type,
+               r.borrower_name, r.rented_at, r.due_date, r.returned_at
+        FROM rentals r JOIN items i ON i.id = r.item_id
+        ORDER BY r.id DESC
+    """).fetchall()
+    conn.close()
+
+    TYPE_LABELS = {"drone": "드론", "laptop": "노트북", "camera": "카메라", "etc": "기타"}
+
+    def fmt(val):
+        if not val:
+            return "—"
+        try:
+            from datetime import datetime as dt
+            d = dt.fromisoformat(str(val)[:10])
+            return f"{d.year % 100:02d}년 {d.month:02d}월 {d.day:02d}일"
+        except Exception:
+            return val
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "대여 이력"
+
+    # 헤더 스타일
+    header_fill = PatternFill("solid", fgColor="1E293B")
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    center = Alignment(horizontal="center", vertical="center")
+    thin = Side(style="thin", color="CBD5E1")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    headers = ["No.", "물품명", "종류", "대여자", "대여일", "반납 예정일", "상태"]
+    col_widths = [6, 16, 10, 12, 16, 16, 10]
+
+    # 타이틀 행
+    ws.merge_cells("A1:G1")
+    title_cell = ws["A1"]
+    title_cell.value = "부서 공유 물품 대여 이력"
+    title_cell.font = Font(bold=True, size=14, color="1E293B")
+    title_cell.alignment = center
+    ws.row_dimensions[1].height = 32
+
+    # 헤더 행
+    for col, (h, w) in enumerate(zip(headers, col_widths), 1):
+        cell = ws.cell(row=2, column=col, value=h)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = center
+        cell.border = border
+        ws.column_dimensions[get_column_letter(col)].width = w
+    ws.row_dimensions[2].height = 22
+
+    # 데이터 행
+    alt_fill = PatternFill("solid", fgColor="F8FAFC")
+    for idx, r in enumerate(rows, 1):
+        row_num = idx + 2
+        status = "반납완료" if r["returned_at"] else "대여 중"
+        values = [
+            idx,
+            r["item_name"],
+            TYPE_LABELS.get(r["item_type"], "기타"),
+            r["borrower_name"],
+            fmt(r["rented_at"]),
+            fmt(r["due_date"]),
+            status,
+        ]
+        fill = alt_fill if idx % 2 == 0 else None
+        status_color = "27AE60" if r["returned_at"] else "E67E22"
+
+        for col, val in enumerate(values, 1):
+            cell = ws.cell(row=row_num, column=col, value=val)
+            cell.alignment = center
+            cell.border = border
+            if fill:
+                cell.fill = fill
+            if col == 7:  # 상태 컬럼 색상
+                cell.font = Font(bold=True, color=status_color)
+        ws.row_dimensions[row_num].height = 20
+
+    # 출력일 표기
+    from datetime import date
+    ws.cell(row=len(rows) + 4, column=1,
+            value=f"출력일: {date.today().strftime('%Y년 %m월 %d일')}").font = Font(color="94A3B8", size=9)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    filename = f"대여이력_{date.today().strftime('%Y%m%d')}.xlsx"
+    return send_file(buf, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                     as_attachment=True, download_name=filename)
+
+
 @app.route("/qr")
 def qr_page():
     base_url = request.host_url.rstrip("/")
