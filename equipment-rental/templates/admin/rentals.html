@@ -9,10 +9,13 @@
     .admin-sidebar { background: #1a0533; }
     .admin-badge { background:#7c3aed; color:#fff; font-size:0.7rem; padding:2px 7px; border-radius:10px; margin-left:6px; vertical-align:middle; }
     .admin-nav-section { font-size:0.7rem; color:#a78bfa; text-transform:uppercase; letter-spacing:.08em; padding:18px 20px 6px; }
-    .filter-bar { display:flex; gap:8px; margin-bottom:16px; }
+    .filter-bar { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
     .filter-btn { padding:6px 16px; border-radius:8px; border:1.5px solid #e2e8f0; background:#fff; font-size:0.85rem; cursor:pointer; color:#475569; transition:all .15s; }
     .filter-btn.active, .filter-btn:hover { border-color:#7c3aed; background:#7c3aed; color:#fff; }
     .action-cell { display:flex; gap:6px; align-items:center; }
+    .bulk-bar { display:flex; gap:8px; align-items:center; margin-left:auto; }
+    input[type="checkbox"] { width:16px; height:16px; cursor:pointer; accent-color:#7c3aed; }
+    th.check-col, td.check-col { width:36px; text-align:center; }
   </style>
 </head>
 <body>
@@ -75,17 +78,36 @@
         </form>
       </div>
 
-      <!-- Filter -->
+      <!-- Filter + 삭제 버튼 -->
       <div class="filter-bar">
         <button class="filter-btn active" onclick="filterRows('all', this)">전체</button>
         <button class="filter-btn" onclick="filterRows('active', this)">대여 중</button>
         <button class="filter-btn" onclick="filterRows('returned', this)">반납 완료</button>
+
+        <div class="bulk-bar">
+          <button class="btn" style="padding:6px 14px;font-size:0.83rem;border:1.5px solid #e2e8f0;background:#fff;color:#475569;"
+                  onclick="toggleAll(this)">전체 선택</button>
+          <form id="delete-selected-form" method="post" action="/admin/rentals/delete-selected"
+                onsubmit="return confirmSelected()">
+            <div id="selected-hidden"></div>
+            <button type="submit" class="btn btn-danger" style="padding:6px 14px;font-size:0.83rem;">
+              선택 삭제 (<span id="sel-count">0</span>건)
+            </button>
+          </form>
+          <form method="post" action="/admin/rentals/delete-all"
+                onsubmit="return confirm('전체 대여 기록을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')">
+            <button type="submit" class="btn btn-danger" style="padding:6px 14px;font-size:0.83rem;background:#7f1d1d;">
+              🗑️ 전체 삭제
+            </button>
+          </form>
+        </div>
       </div>
 
       <div class="card">
         <table>
           <thead>
             <tr>
+              <th class="check-col"><input type="checkbox" id="check-all" onchange="toggleAll(null, this)"></th>
               <th>물품명</th>
               <th>종류</th>
               <th>대여자</th>
@@ -97,7 +119,10 @@
           </thead>
           <tbody id="rental-tbody">
             {% for r in rows %}
-            <tr data-status="{{ 'active' if not r.returned_at else 'returned' }}">
+            <tr data-status="{{ 'active' if not r.returned_at else 'returned' }}" data-id="{{ r.id }}">
+              <td class="check-col">
+                <input type="checkbox" class="row-check" value="{{ r.id }}" onchange="updateCount()">
+              </td>
               <td><strong>{{ r.item_name }}</strong></td>
               <td>
                 {% if r.item_type == 'drone' %}🚁 드론
@@ -111,7 +136,6 @@
               <td>
                 {% if r.returned_at %}
                   <span class="status-badge status-available">반납완료</span>
-                  <div style="font-size:0.75rem;color:#94a3b8;margin-top:2px;">{{ r.returned_at }}</div>
                 {% else %}
                   <span class="status-badge status-rented">대여 중</span>
                 {% endif %}
@@ -125,7 +149,7 @@
                   </form>
                   {% endif %}
                   <form method="post" action="/admin/rentals/delete/{{ r.id }}"
-                        onsubmit="return confirm('이 대여 기록을 삭제하시겠습니까?')">
+                        onsubmit="return confirm('이 기록을 삭제하시겠습니까?')">
                     <button type="submit" class="btn btn-danger" style="padding:5px 10px;font-size:0.8rem;">삭제</button>
                   </form>
                 </div>
@@ -145,12 +169,35 @@ function filterRows(status, btn) {
   document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   document.querySelectorAll('#rental-tbody tr').forEach(row => {
-    if (status === 'all' || row.dataset.status === status) {
-      row.style.display = '';
-    } else {
-      row.style.display = 'none';
-    }
+    row.style.display = (status === 'all' || row.dataset.status === status) ? '' : 'none';
   });
+  updateCount();
+}
+
+function toggleAll(btn, cb) {
+  const checked = cb ? cb.checked : !document.querySelectorAll('.row-check:checked').length;
+  document.querySelectorAll('#rental-tbody tr:not([style*="none"]) .row-check').forEach(c => c.checked = checked);
+  if (btn) btn.textContent = checked ? '전체 해제' : '전체 선택';
+  updateCount();
+}
+
+function updateCount() {
+  const count = document.querySelectorAll('.row-check:checked').length;
+  document.getElementById('sel-count').textContent = count;
+}
+
+function confirmSelected() {
+  const checks = document.querySelectorAll('.row-check:checked');
+  if (!checks.length) { alert('선택된 항목이 없습니다.'); return false; }
+  if (!confirm(checks.length + '건의 기록을 삭제하시겠습니까?')) return false;
+  const container = document.getElementById('selected-hidden');
+  container.innerHTML = '';
+  checks.forEach(c => {
+    const inp = document.createElement('input');
+    inp.type = 'hidden'; inp.name = 'selected_ids'; inp.value = c.value;
+    container.appendChild(inp);
+  });
+  return true;
 }
 </script>
 </body>

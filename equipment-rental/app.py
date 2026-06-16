@@ -353,6 +353,34 @@ def admin_delete_rental(rental_id):
     return redirect(url_for("admin_rentals"))
 
 
+@app.route("/admin/rentals/delete-selected", methods=["POST"])
+@admin_required
+def admin_delete_selected():
+    ids = request.form.getlist("selected_ids")
+    if not ids:
+        flash("선택된 항목이 없습니다.", "error")
+        return redirect(url_for("admin_rentals"))
+    conn = get_db()
+    for rid in ids:
+        conn.execute("DELETE FROM rentals WHERE id = ?", (rid,))
+    conn.commit()
+    conn.close()
+    flash(f"{len(ids)}건의 기록이 삭제되었습니다.", "success")
+    return redirect(url_for("admin_rentals"))
+
+
+@app.route("/admin/rentals/delete-all", methods=["POST"])
+@admin_required
+def admin_delete_all_rentals():
+    conn = get_db()
+    count = conn.execute("SELECT COUNT(*) FROM rentals").fetchone()[0]
+    conn.execute("DELETE FROM rentals")
+    conn.commit()
+    conn.close()
+    flash(f"전체 {count}건의 대여 기록이 삭제되었습니다.", "success")
+    return redirect(url_for("admin_rentals"))
+
+
 # 기존 /manage 경로 하위 호환 유지
 @app.route("/manage")
 @admin_required
