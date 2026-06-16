@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR 코드</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .qr-wrap {
+      background: #fff;
+      border-radius: 16px;
+      padding: 40px;
+      max-width: 440px;
+      margin: 0 auto;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+      border: 1px solid #e2e8f0;
+      text-align: center;
+    }
+    .qr-wrap h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; color: #1e293b; }
+    .qr-wrap p { font-size: 0.85rem; color: #64748b; margin-bottom: 24px; }
+    .qr-img { width: 220px; height: 220px; border: 8px solid #fff; box-shadow: 0 2px 12px rgba(0,0,0,.12); border-radius: 12px; margin-bottom: 20px; }
+    .url-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.9rem;
+      color: #3b82f6;
+      word-break: break-all;
+      margin-bottom: 20px;
+      font-weight: 600;
+    }
+    .btn-download {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 10px 24px;
+      background: #1e293b; color: #fff;
+      border: none; border-radius: 8px;
+      font-size: 0.9rem; font-weight: 600; font-family: inherit;
+      cursor: pointer; text-decoration: none;
+    }
+    .btn-download:hover { background: #334155; }
+    .divider { border: none; border-top: 1px solid #e2e8f0; margin: 24px 0; }
+    .hint { font-size: 0.8rem; color: #94a3b8; }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-icon">📦</span>
+      <h1>물품 대여<br>관리 시스템</h1>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="/" class="nav-item"><span class="icon">🏠</span> 대여 현황</a>
+      <a href="/calendar" class="nav-item"><span class="icon">📅</span> 달력 보기</a>
+      <a href="/history" class="nav-item"><span class="icon">📋</span> 대여 이력</a>
+      <a href="/manage" class="nav-item"><span class="icon">⚙️</span> 물품 관리</a>
+      <a href="/qr" class="nav-item active"><span class="icon">📱</span> QR 코드</a>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <h2>QR 코드</h2>
+    </div>
+    <div class="page-content">
+      <div class="qr-wrap">
+        <h3>📱 스마트폰으로 스캔하세요</h3>
+        <p>QR 코드를 스캔하면 대여/반납 시스템에 바로 접속됩니다.</p>
+
+        <img class="qr-img" src="/qr/image" alt="QR 코드">
+
+        <div class="url-box">{{ base_url }}</div>
+
+        <a class="btn-download" href="/qr/image" download="rental-qr.png">
+          ⬇️ QR 이미지 저장
+        </a>
+
+        <hr class="divider">
+        <p class="hint">
+          💡 QR 코드를 출력해서 공용 공간에 부착하면<br>
+          직원들이 스마트폰으로 바로 접속할 수 있습니다.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

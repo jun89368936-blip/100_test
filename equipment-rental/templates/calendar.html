@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>달력 보기</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css">
+  <style>
+    .cal-wrap { background:#fff; border-radius:14px; padding:24px; box-shadow:0 1px 3px rgba(0,0,0,.06); border:1px solid #e2e8f0; }
+    .legend { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:20px; }
+    .legend-item { display:flex; align-items:center; gap:6px; font-size:0.85rem; color:#475569; }
+    .legend-dot { width:12px; height:12px; border-radius:3px; }
+    .fc .fc-button { font-family:inherit; font-size:0.85rem; }
+    .fc .fc-toolbar-title { font-size:1.1rem; font-weight:700; }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-icon">📦</span>
+      <h1>물품 대여<br>관리 시스템</h1>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="/" class="nav-item"><span class="icon">🏠</span> 대여 현황</a>
+      <a href="/calendar" class="nav-item active"><span class="icon">📅</span> 달력 보기</a>
+      <a href="/history" class="nav-item"><span class="icon">📋</span> 대여 이력</a>
+      <a href="/manage" class="nav-item"><span class="icon">⚙️</span> 물품 관리</a>
+      <a href="/qr" class="nav-item"><span class="icon">📱</span> QR 코드</a>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <h2>달력 보기</h2>
+    </div>
+
+    <div class="page-content">
+      <div class="cal-wrap">
+        <div class="legend">
+          {% for item in items %}
+          <div class="legend-item">
+            <div class="legend-dot" style="background:{{ colors[loop.index0 % colors|length] }}"></div>
+            <span>{{ item.name }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        <div id="calendar"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/locales/ko.global.min.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    new FullCalendar.Calendar(document.getElementById('calendar'), {
+      locale: 'ko',
+      initialView: 'dayGridMonth',
+      headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,listMonth' },
+      events: '/api/events',
+      eventClick: function(info) {
+        var p = info.event.extendedProps;
+        alert(info.event.title + '\n기간: ' + info.event.startStr + ' ~ ' + (info.event.endStr||'-') + '\n상태: ' + p.status);
+      },
+      eventDidMount: function(info) {
+        if (info.event.extendedProps.status === '반납완료') info.el.style.opacity = '0.5';
+      }
+    }).render();
+  });
+</script>
+</body>
+</html>

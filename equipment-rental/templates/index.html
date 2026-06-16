@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>부서 공유 물품 대여/반납</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-icon">📦</span>
+      <h1>물품 대여<br>관리 시스템</h1>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="/" class="nav-item active"><span class="icon">🏠</span> 대여 현황</a>
+      <a href="/calendar" class="nav-item"><span class="icon">📅</span> 달력 보기</a>
+      <a href="/history" class="nav-item"><span class="icon">📋</span> 대여 이력</a>
+      <a href="/manage" class="nav-item"><span class="icon">⚙️</span> 물품 관리</a>
+      <a href="/qr" class="nav-item"><span class="icon">📱</span> QR 코드</a>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <h2>대여 현황</h2>
+      <span style="font-size:0.85rem;color:#64748b;">{{ today }}</span>
+    </div>
+
+    <div class="page-content">
+
+      <!-- Flash -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-wrap">
+            {% for category, message in messages %}
+              <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <!-- Stats -->
+      {% set total = items|length %}
+      {% set rented = items|selectattr('current_borrower')|list|length %}
+      {% set available = total - rented %}
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-icon blue">📦</div>
+          <div>
+            <div class="stat-label">전체 물품</div>
+            <div class="stat-value">{{ total }}</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">✅</div>
+          <div>
+            <div class="stat-label">대여 가능</div>
+            <div class="stat-value">{{ available }}</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon orange">🔒</div>
+          <div>
+            <div class="stat-label">대여 중</div>
+            <div class="stat-value">{{ rented }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Item Cards -->
+      <div class="items-grid">
+        {% for item in items %}
+        <div class="item-card">
+          <div class="item-card-header">
+            <div class="item-icon-name">
+              <div class="item-type-icon {{ item.type }}">
+                {% if item.type == 'drone' %}🚁
+                {% elif item.type == 'laptop' %}💻
+                {% elif item.type == 'camera' %}📷
+                {% else %}📌{% endif %}
+              </div>
+              <div>
+                <div class="item-name">{{ item.name }}</div>
+                <div class="item-type-label">
+                  {% if item.type == 'drone' %}드론
+                  {% elif item.type == 'laptop' %}노트북
+                  {% elif item.type == 'camera' %}카메라
+                  {% else %}기타{% endif %}
+                </div>
+              </div>
+            </div>
+            {% if item.current_borrower %}
+              <span class="status-badge status-rented">대여 중</span>
+            {% else %}
+              <span class="status-badge status-available">대여 가능</span>
+            {% endif %}
+          </div>
+
+          {% if item.current_borrower %}
+            <div class="borrower-info">
+              <div class="borrower-name">👤 {{ item.current_borrower }}</div>
+              {% if item.current_due_date %}
+                <div class="due-date">📅 반납 예정일: {{ item.current_due_date }}</div>
+              {% endif %}
+            </div>
+            <div class="item-card-footer">
+              <form method="post" action="/return/{{ item.id }}" style="width:100%">
+                <button type="submit" class="btn btn-success" style="width:100%">✅ 반납하기</button>
+              </form>
+            </div>
+          {% else %}
+            <form method="post" action="/rent/{{ item.id }}" class="rent-form">
+              <div class="rent-form-row">
+                <input class="input-field" type="text" name="borrower_name" placeholder="대여자 이름" required>
+                <input class="input-field" type="date" name="due_date" min="{{ today }}" title="반납 예정일" style="width:150px">
+              </div>
+              <button type="submit" class="btn btn-primary" style="width:100%">📤 대여하기</button>
+            </form>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

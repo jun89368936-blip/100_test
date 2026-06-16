@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>관리자 로그인</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    body { display:flex; align-items:center; justify-content:center; min-height:100vh; background:#f0f2f5; }
+    .login-box {
+      background:#fff;
+      border-radius:16px;
+      padding:40px;
+      width:340px;
+      box-shadow:0 4px 24px rgba(0,0,0,.1);
+      text-align:center;
+    }
+    .login-icon { font-size:2.5rem; margin-bottom:12px; }
+    .login-box h2 { font-size:1.2rem; font-weight:700; color:#1e293b; margin-bottom:6px; }
+    .login-box p { font-size:0.85rem; color:#94a3b8; margin-bottom:24px; }
+    .pin-input {
+      width:100%;
+      padding:12px 16px;
+      border:2px solid #e2e8f0;
+      border-radius:10px;
+      font-size:1.4rem;
+      letter-spacing:8px;
+      text-align:center;
+      font-family:inherit;
+      color:#1e293b;
+      margin-bottom:16px;
+      transition:border-color 0.15s;
+    }
+    .pin-input:focus { outline:none; border-color:#3b82f6; }
+    .login-btn {
+      width:100%;
+      padding:12px;
+      background:#3b82f6;
+      color:#fff;
+      border:none;
+      border-radius:10px;
+      font-size:0.95rem;
+      font-weight:700;
+      font-family:inherit;
+      cursor:pointer;
+      transition:background 0.15s;
+    }
+    .login-btn:hover { background:#2563eb; }
+    .back-link { display:block; margin-top:16px; font-size:0.85rem; color:#94a3b8; }
+    .back-link:hover { color:#3b82f6; }
+    .error-msg { background:#fee2e2; color:#991b1b; border-radius:8px; padding:10px; font-size:0.85rem; margin-bottom:16px; }
+  </style>
+</head>
+<body>
+  <div class="login-box">
+    <div class="login-icon">🔐</div>
+    <h2>관리자 인증</h2>
+    <p>물품 관리 페이지는 관리자만 접근할 수 있습니다.</p>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for msg in messages %}
+          <div class="error-msg">❌ {{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="post">
+      <input class="pin-input" type="password" name="pin" placeholder="••••" maxlength="8" autofocus>
+      <button type="submit" class="login-btn">확인</button>
+    </form>
+    <a href="/" class="back-link">← 대여 현황으로 돌아가기</a>
+  </div>
+</body>
+</html>
