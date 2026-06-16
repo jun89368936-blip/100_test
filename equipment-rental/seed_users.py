@@ -40,11 +40,11 @@ with open(CSV_PATH, encoding="utf-8") as f:
         if not sabun or not name or not email:
             continue
 
-        username = email.split("@")[0]
+        username = sabun  # 아이디 = 사번
         pw_hash = generate_password_hash(sabun)  # 초기 비밀번호 = 사번
 
         existing = conn.execute(
-            "SELECT id FROM users WHERE username = ?", (username,)
+            "SELECT id FROM users WHERE username = ?", (sabun,)
         ).fetchone()
         if existing:
             skipped += 1
@@ -59,4 +59,4 @@ with open(CSV_PATH, encoding="utf-8") as f:
 conn.commit()
 conn.close()
 print(f"완료: {added}명 추가, {skipped}명 건너뜀")
-print("초기 비밀번호 = 각자 사번")
+print("아이디 = 사번, 초기 비밀번호 = 사번")
