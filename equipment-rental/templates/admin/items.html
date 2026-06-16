@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>물품 관리</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .admin-sidebar { background: #1a0533; }
+    .admin-badge { background:#7c3aed; color:#fff; font-size:0.7rem; padding:2px 7px; border-radius:10px; margin-left:6px; vertical-align:middle; }
+    .admin-nav-section { font-size:0.7rem; color:#a78bfa; text-transform:uppercase; letter-spacing:.08em; padding:18px 20px 6px; }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <aside class="sidebar admin-sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-icon">🛡️</span>
+      <h1>관리자<br>모드</h1>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="admin-nav-section">관리</div>
+      <a href="/admin" class="nav-item"><span class="icon">📊</span> 대시보드</a>
+      <a href="/admin/items" class="nav-item active"><span class="icon">📦</span> 물품 관리</a>
+      <a href="/admin/rentals" class="nav-item"><span class="icon">📋</span> 대여 관리</a>
+      <div class="admin-nav-section">이동</div>
+      <a href="/" class="nav-item"><span class="icon">🏠</span> 일반 화면</a>
+      <a href="/admin/logout" class="nav-item"><span class="icon">🔓</span> 로그아웃</a>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <h2>물품 관리 <span class="admin-badge">ADMIN</span></h2>
+    </div>
+
+    <div class="page-content">
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-wrap">
+            {% for category, message in messages %}
+              <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <!-- Add form -->
+      <div class="add-card">
+        <h3>➕ 새 물품 추가</h3>
+        <form method="post" action="/admin/items/add" class="add-form-row">
+          <input class="input-field" type="text" name="name" placeholder="물품명 (예: 드론 4호)" required style="flex:1;min-width:180px">
+          <select class="input-select" name="type" required>
+            <option value="">종류 선택</option>
+            <option value="drone">🚁 드론</option>
+            <option value="laptop">💻 노트북</option>
+            <option value="camera">📷 카메라</option>
+            <option value="etc">📌 기타</option>
+          </select>
+          <button type="submit" class="btn btn-primary">추가</button>
+        </form>
+      </div>
+
+      <!-- Item list -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">현재 물품 목록</span>
+          <span style="font-size:0.85rem;color:#64748b;">총 {{ items|length }}개</span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>물품명</th>
+              <th>종류</th>
+              <th>상태</th>
+              <th>삭제</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in items %}
+            <tr>
+              <td style="color:#94a3b8;">#{{ item.id }}</td>
+              <td><strong>{{ item.name }}</strong></td>
+              <td>
+                {% if item.type == 'drone' %}🚁 드론
+                {% elif item.type == 'laptop' %}💻 노트북
+                {% elif item.type == 'camera' %}📷 카메라
+                {% else %}📌 기타{% endif %}
+              </td>
+              <td>
+                {% if item.is_rented %}
+                  <span class="status-badge status-rented">대여 중</span>
+                {% else %}
+                  <span class="status-badge status-available">대여 가능</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if not item.is_rented %}
+                <form method="post" action="/admin/items/delete/{{ item.id }}"
+                      onsubmit="return confirm('{{ item.name }}을(를) 삭제하시겠습니까?')">
+                  <button type="submit" class="btn btn-danger" style="padding:6px 12px;font-size:0.82rem;">삭제</button>
+                </form>
+                {% else %}
+                  <span style="font-size:0.82rem;color:#94a3b8;">대여중 삭제불가</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

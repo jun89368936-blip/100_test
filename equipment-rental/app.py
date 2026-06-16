@@ -145,7 +145,7 @@ def admin_login():
         pin = request.form.get("pin", "").strip()
         if pin == ADMIN_PIN:
             session["is_admin"] = True
-            return redirect(url_for("manage"))
+            return redirect(url_for("admin_dashboard"))
         flash("PIN이 올바르지 않습니다.")
     return render_template("admin_login.html")
 
@@ -156,9 +156,30 @@ def admin_logout():
     return redirect(url_for("index"))
 
 
-@app.route("/manage")
+@app.route("/admin")
 @admin_required
-def manage():
+def admin_dashboard():
+    conn = get_db()
+    total = conn.execute("SELECT COUNT(*) FROM items").fetchone()[0]
+    rented = conn.execute(
+        "SELECT COUNT(*) FROM rentals WHERE returned_at IS NULL"
+    ).fetchone()[0]
+    total_rentals = conn.execute("SELECT COUNT(*) FROM rentals").fetchone()[0]
+    active_rentals = conn.execute("""
+        SELECT r.id AS rental_id, r.borrower_name, r.rented_at, r.due_date, i.name AS item_name
+        FROM rentals r JOIN items i ON i.id = r.item_id
+        WHERE r.returned_at IS NULL
+        ORDER BY r.rented_at DESC
+    """).fetchall()
+    conn.close()
+    stats = {"total": total, "rented": rented, "available": total - rented, "total_rentals": total_rentals}
+    return render_template("admin/dashboard.html", stats=stats, active_rentals=active_rentals,
+                           today=date.today().isoformat())
+
+
+@app.route("/admin/items")
+@admin_required
+def admin_items():
     conn = get_db()
     items = conn.execute("""
         SELECT i.*,
@@ -166,43 +187,130 @@ def manage():
         FROM items i ORDER BY i.id
     """).fetchall()
     conn.close()
-    return render_template("manage.html", items=items)
+    return render_template("admin/items.html", items=items)
 
 
-@app.route("/manage/add", methods=["POST"])
+@app.route("/admin/items/add", methods=["POST"])
 @admin_required
-def add_item():
+def admin_add_item():
     name = request.form.get("name", "").strip()
     item_type = request.form.get("type", "").strip()
     if not name or not item_type:
-        flash("물품명과 종류를 모두 입력해주세요.")
-        return redirect(url_for("manage"))
+        flash("물품명과 종류를 모두 입력해주세요.", "error")
+        return redirect(url_for("admin_items"))
     conn = get_db()
     conn.execute("INSERT INTO items (name, type) VALUES (?, ?)", (name, item_type))
     conn.commit()
     conn.close()
-    flash(f"'{name}' 물품이 추가되었습니다.")
-    return redirect(url_for("manage"))
+    flash(f"'{name}' 물품이 추가되었습니다.", "success")
+    return redirect(url_for("admin_items"))
 
 
-@app.route("/manage/delete/<int:item_id>", methods=["POST"])
+@app.route("/admin/items/delete/<int:item_id>", methods=["POST"])
 @admin_required
-def delete_item(item_id):
+def admin_delete_item(item_id):
     conn = get_db()
     is_rented = conn.execute(
         "SELECT COUNT(*) FROM rentals WHERE item_id = ? AND returned_at IS NULL", (item_id,)
     ).fetchone()[0]
     if is_rented:
-        flash("현재 대여 중인 물품은 삭제할 수 없습니다.")
+        flash("현재 대여 중인 물품은 삭제할 수 없습니다.", "error")
         conn.close()
-        return redirect(url_for("manage"))
+        return redirect(url_for("admin_items"))
     item = conn.execute("SELECT name FROM items WHERE id = ?", (item_id,)).fetchone()
     conn.execute("DELETE FROM rentals WHERE item_id = ?", (item_id,))
     conn.execute("DELETE FROM items WHERE id = ?", (item_id,))
     conn.commit()
     conn.close()
-    flash(f"'{item['name']}' 물품이 삭제되었습니다.")
-    return redirect(url_for("manage"))
+    flash(f"'{item['name']}' 물품이 삭제되었습니다.", "success")
+    return redirect(url_for("admin_items"))
+
+
+@app.route("/admin/rentals")
+@admin_required
+def admin_rentals():
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT r.id, i.name AS item_name, i.type AS item_type,
+               r.borrower_name, r.rented_at, r.returned_at, r.due_date
+        FROM rentals r JOIN items i ON i.id = r.item_id
+        ORDER BY r.id DESC
+    """).fetchall()
+    available_items = conn.execute("""
+        SELECT i.id, i.name FROM items i
+        WHERE NOT EXISTS (
+            SELECT 1 FROM rentals r WHERE r.item_id = i.id AND r.returned_at IS NULL
+        )
+        ORDER BY i.id
+    """).fetchall()
+    conn.close()
+    return render_template("admin/rentals.html", rows=rows, available_items=available_items)
+
+
+@app.route("/admin/rentals/add", methods=["POST"])
+@admin_required
+def admin_add_rental():
+    item_id = request.form.get("item_id", "").strip()
+    borrower_name = request.form.get("borrower_name", "").strip()
+    due_date = request.form.get("due_date", "").strip()
+    if not item_id or not borrower_name:
+        flash("물품과 대여자 이름을 입력해주세요.", "error")
+        return redirect(url_for("admin_rentals"))
+    conn = get_db()
+    try:
+        rented_at = datetime.now().isoformat(timespec="seconds")
+        conn.execute(
+            "INSERT INTO rentals (item_id, borrower_name, rented_at, due_date) VALUES (?, ?, ?, ?)",
+            (item_id, borrower_name, rented_at, due_date or None),
+        )
+        conn.commit()
+        item = conn.execute("SELECT name FROM items WHERE id = ?", (item_id,)).fetchone()
+        flash(f"'{item['name']}' 대여가 등록되었습니다.", "success")
+        notify_rent(item["name"], borrower_name, rented_at)
+    except INTEGRITY_ERROR:
+        flash("이미 대여 중인 물품입니다.", "error")
+    finally:
+        conn.close()
+    return redirect(url_for("admin_rentals"))
+
+
+@app.route("/admin/rentals/return/<int:rental_id>", methods=["POST"])
+@admin_required
+def admin_return_rental(rental_id):
+    conn = get_db()
+    returned_at = datetime.now().isoformat(timespec="seconds")
+    rental = conn.execute(
+        "SELECT r.borrower_name, i.name FROM rentals r JOIN items i ON i.id = r.item_id WHERE r.id = ?",
+        (rental_id,),
+    ).fetchone()
+    conn.execute(
+        "UPDATE rentals SET returned_at = ? WHERE id = ? AND returned_at IS NULL",
+        (returned_at, rental_id),
+    )
+    conn.commit()
+    conn.close()
+    if rental:
+        flash(f"'{rental['name']}' 반납 처리가 완료되었습니다.", "success")
+        notify_return(rental["name"], rental["borrower_name"], returned_at)
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/rentals/delete/<int:rental_id>", methods=["POST"])
+@admin_required
+def admin_delete_rental(rental_id):
+    conn = get_db()
+    conn.execute("DELETE FROM rentals WHERE id = ?", (rental_id,))
+    conn.commit()
+    conn.close()
+    flash("대여 기록이 삭제되었습니다.", "success")
+    return redirect(url_for("admin_rentals"))
+
+
+# 기존 /manage 경로 하위 호환 유지
+@app.route("/manage")
+@admin_required
+def manage():
+    return redirect(url_for("admin_items"))
 
 
 @app.route("/history")

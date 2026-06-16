@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>관리자 대시보드</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .admin-sidebar { background: #1a0533; }
+    .admin-sidebar .sidebar-logo h1 { font-size: 0.95rem; }
+    .admin-badge { background:#7c3aed; color:#fff; font-size:0.7rem; padding:2px 7px; border-radius:10px; margin-left:6px; vertical-align:middle; }
+    .admin-nav-section { font-size:0.7rem; color:#a78bfa; text-transform:uppercase; letter-spacing:.08em; padding:18px 20px 6px; }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <aside class="sidebar admin-sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-icon">🛡️</span>
+      <h1>관리자<br>모드</h1>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="admin-nav-section">관리</div>
+      <a href="/admin" class="nav-item active"><span class="icon">📊</span> 대시보드</a>
+      <a href="/admin/items" class="nav-item"><span class="icon">📦</span> 물품 관리</a>
+      <a href="/admin/rentals" class="nav-item"><span class="icon">📋</span> 대여 관리</a>
+      <div class="admin-nav-section">이동</div>
+      <a href="/" class="nav-item"><span class="icon">🏠</span> 일반 화면</a>
+      <a href="/admin/logout" class="nav-item"><span class="icon">🔓</span> 로그아웃</a>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <h2>관리자 대시보드 <span class="admin-badge">ADMIN</span></h2>
+      <span style="font-size:0.85rem;color:#64748b;">{{ today }}</span>
+    </div>
+
+    <div class="page-content">
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-wrap">
+            {% for category, message in messages %}
+              <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <!-- Stats -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-icon blue">📦</div>
+          <div><div class="stat-label">전체 물품</div><div class="stat-value">{{ stats.total }}</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">✅</div>
+          <div><div class="stat-label">대여 가능</div><div class="stat-value">{{ stats.available }}</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon orange">🔒</div>
+          <div><div class="stat-label">대여 중</div><div class="stat-value">{{ stats.rented }}</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#f3e8ff;color:#7c3aed;">📝</div>
+          <div><div class="stat-label">전체 대여 건</div><div class="stat-value">{{ stats.total_rentals }}</div></div>
+        </div>
+      </div>
+
+      <!-- Active Rentals -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">🔒 현재 대여 중인 물품</span>
+          <span style="font-size:0.85rem;color:#64748b;">{{ active_rentals|length }}건</span>
+        </div>
+        {% if active_rentals %}
+        <table>
+          <thead>
+            <tr>
+              <th>물품명</th>
+              <th>대여자</th>
+              <th>대여 시각</th>
+              <th>반납 예정일</th>
+              <th>강제 반납</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in active_rentals %}
+            <tr>
+              <td><strong>{{ r.item_name }}</strong></td>
+              <td>{{ r.borrower_name }}</td>
+              <td style="font-size:0.83rem;color:#64748b;">{{ r.rented_at }}</td>
+              <td style="font-size:0.83rem;">
+                {% if r.due_date %}
+                  {{ r.due_date }}
+                {% else %}
+                  <span style="color:#94a3b8;">—</span>
+                {% endif %}
+              </td>
+              <td>
+                <form method="post" action="/admin/rentals/return/{{ r.rental_id }}"
+                      onsubmit="return confirm('{{ r.item_name }} 을(를) 강제 반납 처리하시겠습니까?')">
+                  <button type="submit" class="btn btn-success" style="padding:5px 12px;font-size:0.82rem;">반납 처리</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div style="padding:32px;text-align:center;color:#94a3b8;">현재 대여 중인 물품이 없습니다.</div>
+        {% endif %}
+      </div>
+
+      <!-- Shortcut Cards -->
+      <div class="stats-row" style="margin-top:12px;">
+        <a href="/admin/items" style="text-decoration:none;flex:1;">
+          <div class="stat-card" style="cursor:pointer;border:2px solid #e2e8f0;transition:border-color .2s;" onmouseover="this.style.borderColor='#7c3aed'" onmouseout="this.style.borderColor='#e2e8f0'">
+            <div class="stat-icon" style="background:#f3e8ff;color:#7c3aed;">📦</div>
+            <div><div class="stat-label">물품 추가 / 삭제</div><div style="font-size:0.8rem;color:#94a3b8;margin-top:2px;">→ 물품 관리</div></div>
+          </div>
+        </a>
+        <a href="/admin/rentals" style="text-decoration:none;flex:1;">
+          <div class="stat-card" style="cursor:pointer;border:2px solid #e2e8f0;transition:border-color .2s;" onmouseover="this.style.borderColor='#7c3aed'" onmouseout="this.style.borderColor='#e2e8f0'">
+            <div class="stat-icon" style="background:#fef3c7;color:#d97706;">📋</div>
+            <div><div class="stat-label">대여 이력 관리</div><div style="font-size:0.8rem;color:#94a3b8;margin-top:2px;">→ 강제반납 / 기록 삭제</div></div>
+          </div>
+        </a>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>
