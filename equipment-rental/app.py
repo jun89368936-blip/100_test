@@ -461,7 +461,7 @@ def admin_delete_all_rentals():
 @admin_required
 def admin_seed_users():
     import csv as _csv
-    csv_path = os.path.join(os.path.dirname(__file__), "명단_utf8.csv")
+    csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "members.csv")
     if not os.path.exists(csv_path):
         flash("명단 CSV 파일이 없습니다.", "error")
         return redirect(url_for("admin_users"))
