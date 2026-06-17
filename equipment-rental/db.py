@@ -132,6 +132,15 @@ def init_db():
         conn.execute("DROP INDEX IF EXISTS ux_active_rental")
     except Exception:
         pass
+    # sort_order 컬럼 추가 (기존 DB 마이그레이션)
+    try:
+        conn.execute("ALTER TABLE items ADD COLUMN sort_order INTEGER DEFAULT 0")
+        conn.commit()
+        rows = conn.execute("SELECT id FROM items ORDER BY id").fetchall()
+        for idx, row in enumerate(rows):
+            conn.execute("UPDATE items SET sort_order = ? WHERE id = ?", (idx, row["id"]))
+    except Exception:
+        pass
     conn.commit()
     conn.close()
 

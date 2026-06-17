@@ -154,6 +154,7 @@ def index():
               AND r.returned_at IS NULL
               AND r.rented_at <= ?
               AND (r.due_date IS NULL OR r.due_date > ?)
+        ORDER BY i.sort_order, i.id
     """, (today, today)).fetchall()
     my_rentals = conn.execute("""
         SELECT r.id, r.item_id, i.name AS item_name, i.type AS item_type,
@@ -329,7 +330,7 @@ def admin_items():
                (SELECT COUNT(*) FROM rentals r
                 WHERE r.item_id = i.id AND r.returned_at IS NULL
                   AND r.rented_at <= ? AND (r.due_date IS NULL OR r.due_date > ?)) AS is_rented
-        FROM items i ORDER BY i.id
+        FROM items i ORDER BY i.sort_order, i.id
     """, (today, today)).fetchall()
     conn.close()
     return render_template("admin/items.html", items=items)
@@ -344,10 +345,31 @@ def admin_add_item():
         flash("물품명과 종류를 모두 입력해주세요.", "error")
         return redirect(url_for("admin_items"))
     conn = get_db()
-    conn.execute("INSERT INTO items (name, type) VALUES (?, ?)", (name, item_type))
+    max_order = conn.execute("SELECT COALESCE(MAX(sort_order), -1) FROM items").fetchone()[0]
+    conn.execute("INSERT INTO items (name, type, sort_order) VALUES (?, ?, ?)", (name, item_type, max_order + 1))
     conn.commit()
     conn.close()
     flash(f"'{name}' 물품이 추가되었습니다.", "success")
+    return redirect(url_for("admin_items"))
+
+
+@app.route("/admin/items/move/<int:item_id>/<direction>", methods=["POST"])
+@admin_required
+def admin_move_item(item_id, direction):
+    conn = get_db()
+    items = conn.execute("SELECT id, sort_order FROM items ORDER BY sort_order, id").fetchall()
+    ids = [r["id"] for r in items]
+    if item_id not in ids:
+        conn.close()
+        return redirect(url_for("admin_items"))
+    idx = ids.index(item_id)
+    swap_idx = idx - 1 if direction == "up" else idx + 1
+    if 0 <= swap_idx < len(ids):
+        a, b = items[idx], items[swap_idx]
+        conn.execute("UPDATE items SET sort_order = ? WHERE id = ?", (b["sort_order"], a["id"]))
+        conn.execute("UPDATE items SET sort_order = ? WHERE id = ?", (a["sort_order"], b["id"]))
+        conn.commit()
+    conn.close()
     return redirect(url_for("admin_items"))
 
 
