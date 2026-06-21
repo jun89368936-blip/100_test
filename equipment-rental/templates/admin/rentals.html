@@ -79,6 +79,29 @@
         </form>
       </div>
 
+      <!-- 물품별 필터 -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+        <span style="font-size:0.85rem;font-weight:600;color:#475569;">물품 선택:</span>
+        <form method="get" action="/admin/rentals" style="display:flex;gap:8px;align-items:center;">
+          <select name="item_id" class="input-select" style="min-width:160px;"
+                  onchange="this.form.submit()">
+            <option value="">전체 물품</option>
+            {% for item in all_items %}
+            <option value="{{ item.id }}" {% if item_filter == item.id|string %}selected{% endif %}>
+              {{ item.name }}
+            </option>
+            {% endfor %}
+          </select>
+          {% if item_filter %}
+          <a href="/admin/rentals" class="btn" style="padding:6px 12px;font-size:0.83rem;border:1.5px solid #e2e8f0;background:#fff;color:#475569;">✕ 초기화</a>
+          {% endif %}
+        </form>
+        <a href="/admin/rentals/export{% if item_filter %}?item_id={{ item_filter }}{% endif %}"
+           class="btn btn-success" style="padding:6px 14px;font-size:0.83rem;margin-left:auto;">
+          📥 엑셀 다운로드{% if item_filter %} (선택 물품){% endif %}
+        </a>
+      </div>
+
       <!-- Filter + 삭제 버튼 -->
       <div class="filter-bar">
         <button class="filter-btn active" onclick="filterRows('all', this)">전체</button>

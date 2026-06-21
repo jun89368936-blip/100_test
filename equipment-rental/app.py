@@ -396,13 +396,23 @@ def admin_delete_item(item_id):
 @app.route("/admin/rentals")
 @admin_required
 def admin_rentals():
+    item_filter = request.args.get("item_id", "")
     conn = get_db()
-    rows = conn.execute("""
-        SELECT r.id, i.name AS item_name, i.type AS item_type,
-               r.borrower_name, r.rented_at, r.returned_at, r.due_date
-        FROM rentals r JOIN items i ON i.id = r.item_id
-        ORDER BY r.id DESC
-    """).fetchall()
+    if item_filter:
+        rows = conn.execute("""
+            SELECT r.id, i.name AS item_name, i.type AS item_type,
+                   r.borrower_name, r.rented_at, r.returned_at, r.due_date
+            FROM rentals r JOIN items i ON i.id = r.item_id
+            WHERE r.item_id = ?
+            ORDER BY r.id DESC
+        """, (item_filter,)).fetchall()
+    else:
+        rows = conn.execute("""
+            SELECT r.id, i.name AS item_name, i.type AS item_type,
+                   r.borrower_name, r.rented_at, r.returned_at, r.due_date
+            FROM rentals r JOIN items i ON i.id = r.item_id
+            ORDER BY r.id DESC
+        """).fetchall()
     available_items = conn.execute("""
         SELECT i.id, i.name FROM items i
         WHERE NOT EXISTS (
@@ -410,8 +420,10 @@ def admin_rentals():
         )
         ORDER BY i.id
     """).fetchall()
+    all_items = conn.execute("SELECT id, name FROM items ORDER BY sort_order, id").fetchall()
     conn.close()
-    return render_template("admin/rentals.html", rows=rows, available_items=available_items)
+    return render_template("admin/rentals.html", rows=rows, available_items=available_items,
+                           all_items=all_items, item_filter=item_filter)
 
 
 @app.route("/admin/rentals/add", methods=["POST"])
@@ -498,6 +510,111 @@ def admin_delete_selected():
     conn.close()
     flash(f"{len(ids)}건의 기록이 삭제되었습니다.", "success")
     return redirect(url_for("admin_rentals"))
+
+
+@app.route("/admin/rentals/export")
+@admin_required
+def admin_rentals_export():
+    import io
+    from flask import send_file
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    item_filter = request.args.get("item_id", "")
+    conn = get_db()
+    if item_filter:
+        rows = conn.execute("""
+            SELECT r.id, i.name AS item_name, i.type AS item_type,
+                   r.borrower_name, r.rented_at, r.due_date, r.returned_at
+            FROM rentals r JOIN items i ON i.id = r.item_id
+            WHERE r.item_id = ?
+            ORDER BY r.id DESC
+        """, (item_filter,)).fetchall()
+        item_name = conn.execute("SELECT name FROM items WHERE id = ?", (item_filter,)).fetchone()
+        sheet_title = item_name["name"] if item_name else "물품별"
+    else:
+        rows = conn.execute("""
+            SELECT r.id, i.name AS item_name, i.type AS item_type,
+                   r.borrower_name, r.rented_at, r.due_date, r.returned_at
+            FROM rentals r JOIN items i ON i.id = r.item_id
+            ORDER BY r.id DESC
+        """).fetchall()
+        sheet_title = "전체"
+    conn.close()
+
+    TYPE_LABELS = {"drone": "드론", "laptop": "노트북", "camera": "카메라", "etc": "기타"}
+
+    def fmt(val):
+        if not val:
+            return "—"
+        try:
+            from datetime import datetime as dt
+            d = dt.fromisoformat(str(val)[:10])
+            return f"{d.year % 100:02d}년 {d.month:02d}월 {d.day:02d}일"
+        except Exception:
+            return val
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = sheet_title[:31]
+
+    header_fill = PatternFill("solid", fgColor="1E293B")
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    center = Alignment(horizontal="center", vertical="center")
+    thin = Side(style="thin", color="CBD5E1")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    headers = ["No.", "물품명", "종류", "대여자", "대여일", "반납 예정일", "상태"]
+    col_widths = [6, 16, 10, 12, 16, 16, 10]
+
+    doc_title = f"부서 공유 물품 대여 이력 — {sheet_title}"
+    ws.merge_cells("A1:G1")
+    title_cell = ws["A1"]
+    title_cell.value = doc_title
+    title_cell.font = Font(bold=True, size=14, color="1E293B")
+    title_cell.alignment = center
+    ws.row_dimensions[1].height = 32
+
+    for col, (h, w) in enumerate(zip(headers, col_widths), 1):
+        cell = ws.cell(row=2, column=col, value=h)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = center
+        cell.border = border
+        ws.column_dimensions[get_column_letter(col)].width = w
+    ws.row_dimensions[2].height = 22
+
+    alt_fill = PatternFill("solid", fgColor="F8FAFC")
+    for idx, r in enumerate(rows, 1):
+        row_num = idx + 2
+        status = "반납완료" if r["returned_at"] else "대여 중"
+        values = [idx, r["item_name"], TYPE_LABELS.get(r["item_type"], "기타"),
+                  r["borrower_name"], fmt(r["rented_at"]), fmt(r["due_date"]), status]
+        fill = alt_fill if idx % 2 == 0 else None
+        status_color = "27AE60" if r["returned_at"] else "E67E22"
+        for col, val in enumerate(values, 1):
+            cell = ws.cell(row=row_num, column=col, value=val)
+            cell.alignment = center
+            cell.border = border
+            if fill:
+                cell.fill = fill
+            if col == 7:
+                cell.font = Font(bold=True, color=status_color)
+        ws.row_dimensions[row_num].height = 20
+
+    from datetime import date as _date
+    ws.cell(row=len(rows) + 4, column=1,
+            value=f"출력일: {_date.today().strftime('%Y년 %m월 %d일')}").font = Font(color="94A3B8", size=9)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    safe = sheet_title.replace(" ", "_")
+    filename = f"대여이력_{safe}_{_date.today().strftime('%Y%m%d')}.xlsx"
+    return send_file(buf, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                     as_attachment=True, download_name=filename)
 
 
 @app.route("/admin/rentals/delete-all", methods=["POST"])
