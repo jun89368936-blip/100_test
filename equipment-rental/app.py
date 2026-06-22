@@ -132,9 +132,14 @@ def change_password():
     return render_template("change_password.html")
 
 
+_db_initialized = False
+
 @app.before_request
 def startup():
-    init_db()
+    global _db_initialized
+    if not _db_initialized:
+        init_db()
+        _db_initialized = True
 
 
 @app.route("/")
