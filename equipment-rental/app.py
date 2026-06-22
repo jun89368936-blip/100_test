@@ -282,6 +282,34 @@ def return_item(item_id):
     return redirect(url_for("index"))
 
 
+@app.route("/cancel/<int:rental_id>", methods=["POST"])
+@login_required
+def cancel_rental(rental_id):
+    conn = get_db()
+    rental = conn.execute(
+        "SELECT r.id, r.borrower_name, r.returned_at, i.name AS item_name "
+        "FROM rentals r JOIN items i ON i.id = r.item_id WHERE r.id = ?",
+        (rental_id,),
+    ).fetchone()
+    if not rental:
+        flash("존재하지 않는 대여 기록입니다.", "error")
+        conn.close()
+        return redirect(url_for("index"))
+    if rental["returned_at"] is not None:
+        flash("이미 반납된 대여입니다.", "error")
+        conn.close()
+        return redirect(url_for("index"))
+    if rental["borrower_name"] != session.get("display_name"):
+        flash("본인이 신청한 대여만 취소할 수 있습니다.", "error")
+        conn.close()
+        return redirect(url_for("index"))
+    conn.execute("DELETE FROM rentals WHERE id = ?", (rental_id,))
+    conn.commit()
+    conn.close()
+    flash(f"'{rental['item_name']}' 대여 신청이 취소되었습니다.", "success")
+    return redirect(url_for("index"))
+
+
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
     if request.method == "POST":

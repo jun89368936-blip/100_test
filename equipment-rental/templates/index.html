@@ -60,6 +60,7 @@
               <th>대여일</th>
               <th>반납 예정일</th>
               <th>반납</th>
+              <th>취소</th>
             </tr>
           </thead>
           <tbody>
@@ -88,6 +89,12 @@
               <td>
                 <form method="post" action="/return/{{ r.item_id }}">
                   <button type="submit" class="btn btn-success" style="padding:5px 12px;font-size:0.82rem;">✅ 반납</button>
+                </form>
+              </td>
+              <td>
+                <form method="post" action="/cancel/{{ r.id }}"
+                      onsubmit="return confirm('{{ r.item_name }} 대여 신청을 취소하시겠습니까?')">
+                  <button type="submit" class="btn" style="padding:5px 12px;font-size:0.82rem;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;">✕ 취소</button>
                 </form>
               </td>
             </tr>
