@@ -382,7 +382,8 @@ def _calc_monthly_rental_days(conn, items):
                 end = today
         elif r["due_date"]:
             try:
-                end = dt.fromisoformat(str(r["due_date"])[:10]).date()
+                # 아직 반납 안 된 건은 오늘까지만 집계 (미래 일수 제외)
+                end = min(dt.fromisoformat(str(r["due_date"])[:10]).date(), today)
             except Exception:
                 end = today
         else:
