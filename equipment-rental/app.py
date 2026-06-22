@@ -348,25 +348,196 @@ def admin_logout():
     return redirect(url_for("index"))
 
 
+def _calc_monthly_rental_days(conn, items):
+    """물품별 월별 대여일수 계산. {item_name: {YYYY-MM: days}}"""
+    from datetime import datetime as dt, timedelta
+    rows = conn.execute("""
+        SELECT r.item_id, r.rented_at, r.due_date, r.returned_at
+        FROM rentals r
+        WHERE r.cancelled_at IS NULL
+        ORDER BY r.item_id, r.rented_at
+    """).fetchall()
+
+    today = date.today()
+    data = {item["name"]: {} for item in items}
+    id_to_name = {item["id"]: item["name"] for item in items}
+
+    for r in rows:
+        name = id_to_name.get(r["item_id"])
+        if not name:
+            continue
+        try:
+            start = dt.fromisoformat(str(r["rented_at"])[:10]).date()
+        except Exception:
+            continue
+        if r["returned_at"]:
+            try:
+                end = dt.fromisoformat(str(r["returned_at"])[:10]).date()
+            except Exception:
+                end = today
+        elif r["due_date"]:
+            try:
+                end = dt.fromisoformat(str(r["due_date"])[:10]).date()
+            except Exception:
+                end = today
+        else:
+            end = today
+
+        cur = start
+        while cur <= end:
+            key = cur.strftime("%Y-%m")
+            data[name][key] = data[name].get(key, 0) + 1
+            cur += timedelta(days=1)
+
+    return data
+
+
 @app.route("/admin")
 @admin_required
 def admin_dashboard():
+    today_str = date.today().isoformat()
     conn = get_db()
-    total = conn.execute("SELECT COUNT(*) FROM items").fetchone()[0]
-    rented = conn.execute(
-        "SELECT COUNT(*) FROM rentals WHERE returned_at IS NULL"
+    items = conn.execute("SELECT id, name FROM items ORDER BY sort_order, id").fetchall()
+    total = len(items)
+    rented_today = conn.execute("""
+        SELECT COUNT(DISTINCT r.item_id) FROM rentals r
+        WHERE r.returned_at IS NULL AND r.cancelled_at IS NULL
+          AND r.rented_at <= ? AND (r.due_date IS NULL OR r.due_date >= ?)
+    """, (today_str, today_str)).fetchone()[0]
+    total_rentals = conn.execute(
+        "SELECT COUNT(*) FROM rentals WHERE cancelled_at IS NULL"
     ).fetchone()[0]
-    total_rentals = conn.execute("SELECT COUNT(*) FROM rentals").fetchone()[0]
     active_rentals = conn.execute("""
         SELECT r.id AS rental_id, r.borrower_name, r.rented_at, r.due_date, i.name AS item_name
         FROM rentals r JOIN items i ON i.id = r.item_id
-        WHERE r.returned_at IS NULL
+        WHERE r.returned_at IS NULL AND r.cancelled_at IS NULL
         ORDER BY r.rented_at DESC
     """).fetchall()
+
+    monthly_data = _calc_monthly_rental_days(conn, items)
     conn.close()
-    stats = {"total": total, "rented": rented, "available": total - rented, "total_rentals": total_rentals}
+
+    # 월 목록 (최근 6개월)
+    months = []
+    for i in range(5, -1, -1):
+        d = date.today().replace(day=1)
+        m = d.month - i
+        y = d.year
+        while m <= 0:
+            m += 12
+            y -= 1
+        months.append(f"{y}-{m:02d}")
+
+    stats = {"total": total, "rented": rented_today,
+             "available": total - rented_today, "total_rentals": total_rentals}
     return render_template("admin/dashboard.html", stats=stats, active_rentals=active_rentals,
-                           today=date.today().isoformat())
+                           today=today_str, items=items,
+                           monthly_data=monthly_data, months=months)
+
+
+@app.route("/admin/dashboard/export")
+@admin_required
+def admin_dashboard_export():
+    import io
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    from flask import send_file
+    from datetime import timedelta, datetime as dt
+
+    conn = get_db()
+    items = conn.execute("SELECT id, name FROM items ORDER BY sort_order, id").fetchall()
+    monthly_data = _calc_monthly_rental_days(conn, items)
+    conn.close()
+
+    # 최근 12개월
+    months = []
+    for i in range(11, -1, -1):
+        d = date.today().replace(day=1)
+        m = d.month - i
+        y = d.year
+        while m <= 0:
+            m += 12
+            y -= 1
+        months.append(f"{y}-{m:02d}")
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "월별 대여일수"
+
+    center = Alignment(horizontal="center", vertical="center")
+    thin = Side(style="thin", color="CBD5E1")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    hdr_fill = PatternFill("solid", fgColor="1E293B")
+    hdr_font = Font(bold=True, color="FFFFFF", size=11)
+    sub_fill = PatternFill("solid", fgColor="3B4A6B")
+    alt_fill = PatternFill("solid", fgColor="F8FAFC")
+
+    # 타이틀
+    ws.merge_cells(f"A1:{get_column_letter(len(months)+1)}1")
+    tc = ws["A1"]
+    tc.value = "물품별 월별 대여일수"
+    tc.font = Font(bold=True, size=14, color="1E293B")
+    tc.alignment = center
+    ws.row_dimensions[1].height = 30
+
+    # 헤더행: 물품명 | 월1 | 월2 | ...
+    ws.cell(row=2, column=1, value="물품명").fill = hdr_fill
+    ws.cell(row=2, column=1).font = hdr_font
+    ws.cell(row=2, column=1).alignment = center
+    ws.cell(row=2, column=1).border = border
+    ws.column_dimensions["A"].width = 16
+    for ci, m in enumerate(months, 2):
+        cell = ws.cell(row=2, column=ci, value=m)
+        cell.fill = sub_fill
+        cell.font = hdr_font
+        cell.alignment = center
+        cell.border = border
+        ws.column_dimensions[get_column_letter(ci)].width = 11
+    ws.row_dimensions[2].height = 20
+
+    # 데이터
+    for ri, item in enumerate(items):
+        row_num = ri + 3
+        ws.cell(row=row_num, column=1, value=item["name"]).font = Font(bold=True)
+        ws.cell(row=row_num, column=1).border = border
+        ws.cell(row=row_num, column=1).alignment = center
+        if ri % 2 == 1:
+            ws.cell(row=row_num, column=1).fill = alt_fill
+        for ci, m in enumerate(months, 2):
+            days = monthly_data.get(item["name"], {}).get(m, 0)
+            cell = ws.cell(row=row_num, column=ci, value=days if days else "")
+            cell.alignment = center
+            cell.border = border
+            if ri % 2 == 1:
+                cell.fill = alt_fill
+            if days:
+                cell.font = Font(color="1E40AF", bold=True)
+        ws.row_dimensions[row_num].height = 20
+
+    # 합계행
+    sum_row = len(items) + 3
+    ws.cell(row=sum_row, column=1, value="합계").font = Font(bold=True, color="FFFFFF")
+    ws.cell(row=sum_row, column=1).fill = PatternFill("solid", fgColor="7C3AED")
+    ws.cell(row=sum_row, column=1).alignment = center
+    ws.cell(row=sum_row, column=1).border = border
+    for ci, m in enumerate(months, 2):
+        total_days = sum(monthly_data.get(item["name"], {}).get(m, 0) for item in items)
+        cell = ws.cell(row=sum_row, column=ci, value=total_days if total_days else "")
+        cell.fill = PatternFill("solid", fgColor="EDE9FE")
+        cell.font = Font(bold=True, color="4C1D95")
+        cell.alignment = center
+        cell.border = border
+
+    ws.cell(row=sum_row + 2, column=1,
+            value=f"출력일: {date.today().strftime('%Y년 %m월 %d일')}").font = Font(color="94A3B8", size=9)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    filename = f"월별대여일수_{date.today().strftime('%Y%m%d')}.xlsx"
+    return send_file(buf, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                     as_attachment=True, download_name=filename)
 
 
 @app.route("/admin/items")

@@ -10,6 +10,32 @@
     .admin-sidebar .sidebar-logo h1 { font-size: 0.95rem; }
     .admin-badge { background:#7c3aed; color:#fff; font-size:0.7rem; padding:2px 7px; border-radius:10px; margin-left:6px; vertical-align:middle; }
     .admin-nav-section { font-size:0.7rem; color:#a78bfa; text-transform:uppercase; letter-spacing:.08em; padding:18px 20px 6px; }
+
+    .section-title {
+      font-size:0.82rem; font-weight:700; color:#7c3aed; text-transform:uppercase;
+      letter-spacing:.06em; margin:20px 0 10px;
+    }
+
+    /* 월별 표 */
+    .monthly-table-wrap { overflow-x:auto; }
+    .monthly-table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+    .monthly-table th {
+      background:#1e293b; color:#fff; padding:8px 12px; text-align:center;
+      font-weight:600; border:1px solid #334155; white-space:nowrap;
+    }
+    .monthly-table th.item-col { background:#334155; min-width:110px; }
+    .monthly-table td {
+      padding:7px 12px; text-align:center; border:1px solid #e2e8f0;
+      color:#1e293b;
+    }
+    .monthly-table tr:nth-child(even) td { background:#f8fafc; }
+    .monthly-table td.item-name { text-align:left; font-weight:600; color:#334155; }
+    .monthly-table td.has-days { color:#1d4ed8; font-weight:700; }
+    .monthly-table tr.sum-row td {
+      background:#ede9fe; font-weight:700; color:#4c1d95;
+      border-top:2px solid #7c3aed;
+    }
+    .monthly-table tr.sum-row td.item-name { background:#7c3aed; color:#fff; }
   </style>
 </head>
 <body>
@@ -51,7 +77,8 @@
         {% endif %}
       {% endwith %}
 
-      <!-- Stats -->
+      <!-- ① 당일 현황 -->
+      <div class="section-title">📅 당일 현황 ({{ today }})</div>
       <div class="stats-row">
         <div class="stat-card">
           <div class="stat-icon blue">📦</div>
@@ -65,14 +92,10 @@
           <div class="stat-icon orange">🔒</div>
           <div><div class="stat-label">대여 중</div><div class="stat-value">{{ stats.rented }}</div></div>
         </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background:#f3e8ff;color:#7c3aed;">📝</div>
-          <div><div class="stat-label">전체 대여 건</div><div class="stat-value">{{ stats.total_rentals }}</div></div>
-        </div>
       </div>
 
-      <!-- Active Rentals -->
-      <div class="card">
+      <!-- ② 현재 대여 중인 목록 -->
+      <div class="card" style="margin-top:4px;">
         <div class="card-header">
           <span class="card-title">🔒 현재 대여 중인 물품</span>
           <span style="font-size:0.85rem;color:#64748b;">{{ active_rentals|length }}건</span>
@@ -83,7 +106,7 @@
             <tr>
               <th>물품명</th>
               <th>대여자</th>
-              <th>대여 시각</th>
+              <th>대여일</th>
               <th>반납 예정일</th>
               <th>강제 반납</th>
             </tr>
@@ -95,11 +118,7 @@
               <td>{{ r.borrower_name }}</td>
               <td style="font-size:0.83rem;color:#64748b;">{{ r.rented_at | fmt_date }}</td>
               <td style="font-size:0.83rem;">
-                {% if r.due_date %}
-                  {{ r.due_date | fmt_date }}
-                {% else %}
-                  <span style="color:#94a3b8;">—</span>
-                {% endif %}
+                {% if r.due_date %}{{ r.due_date | fmt_date }}{% else %}<span style="color:#94a3b8;">—</span>{% endif %}
               </td>
               <td>
                 <form method="post" action="/admin/rentals/return/{{ r.rental_id }}"
@@ -112,24 +131,58 @@
           </tbody>
         </table>
         {% else %}
-        <div style="padding:32px;text-align:center;color:#94a3b8;">현재 대여 중인 물품이 없습니다.</div>
+        <div style="padding:28px;text-align:center;color:#94a3b8;">현재 대여 중인 물품이 없습니다.</div>
         {% endif %}
       </div>
 
-      <!-- Shortcut Cards -->
-      <div class="stats-row" style="margin-top:12px;">
-        <a href="/admin/items" style="text-decoration:none;flex:1;">
-          <div class="stat-card" style="cursor:pointer;border:2px solid #e2e8f0;transition:border-color .2s;" onmouseover="this.style.borderColor='#7c3aed'" onmouseout="this.style.borderColor='#e2e8f0'">
-            <div class="stat-icon" style="background:#f3e8ff;color:#7c3aed;">📦</div>
-            <div><div class="stat-label">물품 추가 / 삭제</div><div style="font-size:0.8rem;color:#94a3b8;margin-top:2px;">→ 물품 관리</div></div>
-          </div>
+      <!-- ③ 물품별 월별 대여일수 -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:24px;margin-bottom:10px;">
+        <div class="section-title" style="margin:0;">📊 물품별 월별 대여일수 (최근 6개월)</div>
+        <a href="/admin/dashboard/export" class="btn btn-success" style="padding:6px 16px;font-size:0.84rem;">
+          📥 엑셀 출력 (12개월)
         </a>
-        <a href="/admin/rentals" style="text-decoration:none;flex:1;">
-          <div class="stat-card" style="cursor:pointer;border:2px solid #e2e8f0;transition:border-color .2s;" onmouseover="this.style.borderColor='#7c3aed'" onmouseout="this.style.borderColor='#e2e8f0'">
-            <div class="stat-icon" style="background:#fef3c7;color:#d97706;">📋</div>
-            <div><div class="stat-label">대여 이력 관리</div><div style="font-size:0.8rem;color:#94a3b8;margin-top:2px;">→ 강제반납 / 기록 삭제</div></div>
-          </div>
-        </a>
+      </div>
+
+      <div class="card" style="padding:0;">
+        <div class="monthly-table-wrap" style="padding:16px;">
+          <table class="monthly-table">
+            <thead>
+              <tr>
+                <th class="item-col">물품명</th>
+                {% for m in months %}
+                <th>{{ m }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in items %}
+              <tr>
+                <td class="item-name">{{ item.name }}</td>
+                {% for m in months %}
+                  {% set days = monthly_data.get(item.name, {}).get(m, 0) %}
+                  <td class="{{ 'has-days' if days else '' }}">
+                    {{ days if days else '—' }}
+                  </td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+              <!-- 합계 행 -->
+              <tr class="sum-row">
+                <td class="item-name">합 계</td>
+                {% for m in months %}
+                  {% set total_days = namespace(v=0) %}
+                  {% for item in items %}
+                    {% set total_days.v = total_days.v + monthly_data.get(item.name, {}).get(m, 0) %}
+                  {% endfor %}
+                  <td>{{ total_days.v if total_days.v else '—' }}</td>
+                {% endfor %}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="padding:6px 16px 12px;font-size:0.78rem;color:#94a3b8;">
+          * 대여일수는 대여 시작일부터 반납 예정일까지 일수 기준 (취소 건 제외)
+        </div>
       </div>
 
     </div>
