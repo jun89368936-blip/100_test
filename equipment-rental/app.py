@@ -152,6 +152,7 @@ def index():
         LEFT JOIN rentals r
                ON r.item_id = i.id
               AND r.returned_at IS NULL
+              AND r.cancelled_at IS NULL
               AND r.rented_at <= ?
               AND (r.due_date IS NULL OR r.due_date > ?)
         ORDER BY i.sort_order, i.id
@@ -160,7 +161,7 @@ def index():
         SELECT r.id, r.item_id, i.name AS item_name, i.type AS item_type,
                r.rented_at, r.due_date
         FROM rentals r JOIN items i ON i.id = r.item_id
-        WHERE r.borrower_name = ? AND r.returned_at IS NULL
+        WHERE r.borrower_name = ? AND r.returned_at IS NULL AND r.cancelled_at IS NULL
         ORDER BY r.due_date ASC
     """, (display_name,)).fetchall()
     conn.close()
@@ -193,9 +194,10 @@ def api_events():
     conn = get_db()
     rows = conn.execute("""
         SELECT r.id, r.item_id, r.borrower_name, r.rented_at, r.returned_at, r.due_date,
-               i.name AS item_name
+               r.cancelled_at, i.name AS item_name
         FROM rentals r
         JOIN items i ON i.id = r.item_id
+        WHERE r.cancelled_at IS NULL
         ORDER BY r.id DESC
     """).fetchall()
     conn.close()
@@ -247,6 +249,7 @@ def rent(item_id):
         SELECT COUNT(*) FROM rentals
         WHERE item_id = ?
           AND returned_at IS NULL
+          AND cancelled_at IS NULL
           AND rented_at < ?
           AND (due_date IS NULL OR due_date > ?)
     """, (item_id, due_date, rented_at)).fetchone()[0]
@@ -278,11 +281,11 @@ def return_item(item_id):
     returned_at = datetime.now().isoformat(timespec="seconds")
     rental = conn.execute(
         "SELECT r.borrower_name, i.name FROM rentals r JOIN items i ON i.id = r.item_id "
-        "WHERE r.item_id = ? AND r.returned_at IS NULL",
+        "WHERE r.item_id = ? AND r.returned_at IS NULL AND r.cancelled_at IS NULL",
         (item_id,),
     ).fetchone()
     conn.execute(
-        "UPDATE rentals SET returned_at = ? WHERE item_id = ? AND returned_at IS NULL",
+        "UPDATE rentals SET returned_at = ? WHERE item_id = ? AND returned_at IS NULL AND cancelled_at IS NULL",
         (returned_at, item_id),
     )
     conn.commit()
@@ -298,7 +301,7 @@ def return_item(item_id):
 def cancel_rental(rental_id):
     conn = get_db()
     rental = conn.execute(
-        "SELECT r.id, r.borrower_name, r.returned_at, i.name AS item_name "
+        "SELECT r.id, r.borrower_name, r.returned_at, r.cancelled_at, i.name AS item_name "
         "FROM rentals r JOIN items i ON i.id = r.item_id WHERE r.id = ?",
         (rental_id,),
     ).fetchone()
@@ -310,11 +313,18 @@ def cancel_rental(rental_id):
         flash("이미 반납된 대여입니다.", "error")
         conn.close()
         return redirect(url_for("index"))
+    if rental.get("cancelled_at") is not None:
+        flash("이미 취소된 대여입니다.", "error")
+        conn.close()
+        return redirect(url_for("index"))
     if rental["borrower_name"] != session.get("display_name"):
         flash("본인이 신청한 대여만 취소할 수 있습니다.", "error")
         conn.close()
         return redirect(url_for("index"))
-    conn.execute("DELETE FROM rentals WHERE id = ?", (rental_id,))
+    conn.execute(
+        "UPDATE rentals SET cancelled_at = ? WHERE id = ?",
+        (datetime.now().isoformat(timespec="seconds"), rental_id),
+    )
     conn.commit()
     conn.close()
     flash(f"'{rental['item_name']}' 대여 신청이 취소되었습니다.", "success")
@@ -440,7 +450,7 @@ def admin_rentals():
     if item_filter:
         rows = conn.execute("""
             SELECT r.id, i.name AS item_name, i.type AS item_type,
-                   r.borrower_name, r.rented_at, r.returned_at, r.due_date
+                   r.borrower_name, r.rented_at, r.returned_at, r.due_date, r.cancelled_at
             FROM rentals r JOIN items i ON i.id = r.item_id
             WHERE r.item_id = ?
             ORDER BY r.id DESC
@@ -448,7 +458,7 @@ def admin_rentals():
     else:
         rows = conn.execute("""
             SELECT r.id, i.name AS item_name, i.type AS item_type,
-                   r.borrower_name, r.rented_at, r.returned_at, r.due_date
+                   r.borrower_name, r.rented_at, r.returned_at, r.due_date, r.cancelled_at
             FROM rentals r JOIN items i ON i.id = r.item_id
             ORDER BY r.id DESC
         """).fetchall()

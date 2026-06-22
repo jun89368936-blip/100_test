@@ -141,6 +141,12 @@ def init_db():
             conn.execute("UPDATE items SET sort_order = ? WHERE id = ?", (idx, row["id"]))
     except Exception:
         pass
+    # cancelled_at 컬럼 추가 (기존 DB 마이그레이션)
+    try:
+        conn.execute("ALTER TABLE rentals ADD COLUMN cancelled_at TEXT")
+        conn.commit()
+    except Exception:
+        pass
     conn.commit()
     conn.close()
 
