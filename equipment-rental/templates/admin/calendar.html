@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>달력 보기 (관리자)</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css">
+  <style>
+    .admin-sidebar { background: #1a0533; }
+    .admin-badge { background:#7c3aed; color:#fff; font-size:0.7rem; padding:2px 7px; border-radius:10px; margin-left:6px; vertical-align:middle; }
+    .admin-nav-section { font-size:0.7rem; color:#a78bfa; text-transform:uppercase; letter-spacing:.08em; padding:18px 20px 6px; }
+    .cal-wrap { background:#fff; border-radius:14px; padding:24px; box-shadow:0 1px 3px rgba(0,0,0,.06); border:1px solid #e2e8f0; }
+    .legend { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:20px; }
+    .legend-item { display:flex; align-items:center; gap:6px; font-size:0.85rem; color:#475569; }
+    .legend-dot { width:12px; height:12px; border-radius:3px; }
+    .fc .fc-button { font-family:inherit; font-size:0.85rem; }
+    .fc .fc-toolbar-title { font-size:1.1rem; font-weight:700; }
+    .detail-popup {
+      display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+      background:#fff; border-radius:14px; padding:24px 28px; min-width:280px;
+      box-shadow:0 8px 32px rgba(0,0,0,.18); z-index:9999; border:1px solid #e2e8f0;
+    }
+    .detail-popup h3 { margin:0 0 12px; font-size:1rem; color:#1e293b; }
+    .detail-popup .row { display:flex; gap:8px; font-size:0.88rem; margin-bottom:6px; color:#475569; }
+    .detail-popup .label { font-weight:600; color:#1e293b; min-width:70px; }
+    .popup-close { margin-top:14px; width:100%; padding:8px; border:none; border-radius:8px;
+                   background:#7c3aed; color:#fff; font-size:0.9rem; cursor:pointer; }
+    .overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.3); z-index:9998; }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <aside class="sidebar admin-sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-icon">🛡️</span>
+      <h1>관리자<br>모드</h1>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="admin-nav-section">관리</div>
+      <a href="/admin" class="nav-item"><span class="icon">📊</span> 대시보드</a>
+      <a href="/admin/items" class="nav-item"><span class="icon">📦</span> 물품 관리</a>
+      <a href="/admin/rentals" class="nav-item"><span class="icon">📋</span> 대여 관리</a>
+      <a href="/admin/users" class="nav-item"><span class="icon">👥</span> 부서원 관리</a>
+      <a href="/admin/calendar" class="nav-item active"><span class="icon">📅</span> 달력 보기</a>
+      <div class="admin-nav-section">이동</div>
+      <a href="/" class="nav-item"><span class="icon">🏠</span> 일반 화면</a>
+      <a href="/admin/logout" class="nav-item"><span class="icon">🔓</span> 로그아웃</a>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <h2>달력 보기 <span class="admin-badge">ADMIN</span></h2>
+    </div>
+
+    <div class="page-content">
+      <div class="cal-wrap">
+        <div class="legend">
+          {% for item in items %}
+          <div class="legend-item">
+            <div class="legend-dot" style="background:{{ colors[loop.index0 % colors|length] }}"></div>
+            <span>{{ item.name }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        <div id="calendar"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 상세 팝업 -->
+<div class="overlay" id="overlay" onclick="closePopup()"></div>
+<div class="detail-popup" id="detail-popup">
+  <h3 id="popup-title"></h3>
+  <div class="row"><span class="label">대여자</span><span id="popup-borrower"></span></div>
+  <div class="row"><span class="label">대여일</span><span id="popup-start"></span></div>
+  <div class="row"><span class="label">반납 예정일</span><span id="popup-end"></span></div>
+  <div class="row"><span class="label">상태</span><span id="popup-status"></span></div>
+  <button class="popup-close" onclick="closePopup()">닫기</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/locales/ko.global.min.js"></script>
+<script>
+  function closePopup() {
+    document.getElementById('detail-popup').style.display = 'none';
+    document.getElementById('overlay').style.display = 'none';
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    new FullCalendar.Calendar(document.getElementById('calendar'), {
+      locale: 'ko',
+      initialView: 'dayGridMonth',
+      headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,listMonth' },
+      events: '/api/events',
+      eventClick: function(info) {
+        var p = info.event.extendedProps;
+        document.getElementById('popup-title').textContent = info.event.title;
+        document.getElementById('popup-borrower').textContent = p.borrower || '—';
+        document.getElementById('popup-start').textContent = info.event.startStr || '—';
+        document.getElementById('popup-end').textContent = info.event.endStr || '—';
+        document.getElementById('popup-status').textContent = p.status || '—';
+        document.getElementById('detail-popup').style.display = 'block';
+        document.getElementById('overlay').style.display = 'block';
+      },
+      eventDidMount: function(info) {
+        if (info.event.extendedProps.status === '반납완료') info.el.style.opacity = '0.5';
+      }
+    }).render();
+  });
+</script>
+</body>
+</html>

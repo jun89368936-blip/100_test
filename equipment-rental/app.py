@@ -178,6 +178,15 @@ def calendar_view():
     return render_template("calendar.html", items=items, colors=ITEM_COLORS)
 
 
+@app.route("/admin/calendar")
+@admin_required
+def admin_calendar():
+    conn = get_db()
+    items = conn.execute("SELECT * FROM items ORDER BY sort_order, id").fetchall()
+    conn.close()
+    return render_template("admin/calendar.html", items=items, colors=ITEM_COLORS)
+
+
 @app.route("/api/events")
 @login_required
 def api_events():
