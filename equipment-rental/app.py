@@ -164,7 +164,9 @@ def index():
         ORDER BY r.due_date ASC
     """, (display_name,)).fetchall()
     conn.close()
-    return render_template("index.html", items=items, today=today, my_rentals=my_rentals)
+    from datetime import timedelta
+    max_date = (date.today() + timedelta(days=31)).isoformat()
+    return render_template("index.html", items=items, today=today, my_rentals=my_rentals, max_date=max_date)
 
 
 @app.route("/calendar")

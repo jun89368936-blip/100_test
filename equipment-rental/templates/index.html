@@ -179,11 +179,13 @@
               <div class="rent-form-row" style="margin-top:0;">
                 <div style="flex:1">
                   <label style="font-size:0.78rem;color:#64748b;margin-bottom:3px;display:block;">대여일</label>
-                  <input class="input-field" type="date" name="rented_at" value="{{ today }}" required style="width:100%">
+                  <input class="input-field" type="date" name="rented_at" value="{{ today }}"
+                         min="{{ today }}" max="{{ max_date }}" required style="width:100%">
                 </div>
                 <div style="flex:1">
                   <label style="font-size:0.78rem;color:#64748b;margin-bottom:3px;display:block;">반납일</label>
-                  <input class="input-field" type="date" name="due_date" min="{{ today }}" required style="width:100%">
+                  <input class="input-field" type="date" name="due_date"
+                         min="{{ today }}" max="{{ max_date }}" required style="width:100%">
                 </div>
               </div>
               <button type="submit" class="btn btn-primary" style="width:100%;margin-top:8px;">📤 대여하기</button>
