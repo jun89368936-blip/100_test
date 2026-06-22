@@ -170,11 +170,7 @@
               <tr class="sum-row">
                 <td class="item-name">합 계</td>
                 {% for m in months %}
-                  {% set total_days = namespace(v=0) %}
-                  {% for item in items %}
-                    {% set total_days.v = total_days.v + monthly_data.get(item.name, {}).get(m, 0) %}
-                  {% endfor %}
-                  <td>{{ total_days.v if total_days.v else '—' }}</td>
+                  <td>{{ monthly_totals[m] if monthly_totals[m] else '—' }}</td>
                 {% endfor %}
               </tr>
             </tbody>

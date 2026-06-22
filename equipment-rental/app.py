@@ -428,11 +428,19 @@ def admin_dashboard():
             y -= 1
         months.append(f"{y}-{m:02d}")
 
+    # 월별 합계 미리 계산 (Jinja2 namespace 미사용)
+    monthly_totals = {}
+    for m in months:
+        monthly_totals[m] = sum(
+            monthly_data.get(item["name"], {}).get(m, 0) for item in items
+        )
+
     stats = {"total": total, "rented": rented_today,
              "available": total - rented_today, "total_rentals": total_rentals}
     return render_template("admin/dashboard.html", stats=stats, active_rentals=active_rentals,
                            today=today_str, items=items,
-                           monthly_data=monthly_data, months=months)
+                           monthly_data=monthly_data, months=months,
+                           monthly_totals=monthly_totals)
 
 
 @app.route("/admin/dashboard/export")
