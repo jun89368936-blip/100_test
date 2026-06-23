@@ -247,22 +247,32 @@ def api_events():
     events = []
     for idx, r in enumerate(rows):
         start = r["rented_at"][:10] if r["rented_at"] else None
+        # FullCalendar end is exclusive — add 1 day so due_date shows fully
+        from datetime import timedelta as _td
         end = None
         if r["returned_at"]:
-            end = r["returned_at"][:10]
+            try:
+                end = (date.fromisoformat(r["returned_at"][:10]) + _td(days=1)).isoformat()
+            except Exception:
+                end = r["returned_at"][:10]
         elif r["due_date"]:
-            end = r["due_date"]
+            try:
+                end = (date.fromisoformat(r["due_date"][:10]) + _td(days=1)).isoformat()
+            except Exception:
+                end = r["due_date"]
         if not end:
-            end = date.today().isoformat()
+            end = (date.today() + _td(days=1)).isoformat()
 
-        color = ITEM_COLORS[(r["item_id"] - 1) % len(ITEM_COLORS)]
-        status = "반납완료" if r["returned_at"] else "대여중"
+        is_returned = bool(r["returned_at"])
+        color = "#b0b8c8" if is_returned else ITEM_COLORS[(r["item_id"] - 1) % len(ITEM_COLORS)]
+        status = "반납완료" if is_returned else "대여중"
         events.append({
             "id": r["id"],
-            "title": f"{r['item_name']} ({r['borrower_name']})",
+            "title": f"{'[반납] ' if is_returned else ''}{r['item_name']} ({r['borrower_name']})",
             "start": start,
             "end": end,
             "color": color,
+            "textColor": "#fff" if not is_returned else "#6b7280",
             "extendedProps": {"status": status, "borrower": r["borrower_name"]},
         })
 
