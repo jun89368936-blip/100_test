@@ -169,10 +169,39 @@ def index():
         WHERE r.borrower_name = ? AND r.returned_at IS NULL AND r.cancelled_at IS NULL
         ORDER BY r.due_date ASC
     """, (display_name,)).fetchall()
-    conn.close()
+
+    # 주간 대여현황: 이번 주 월~일 (7일)
     from datetime import timedelta
+    weekday = date.today().weekday()  # 0=월
+    week_start = date.today() - timedelta(days=weekday)
+    week_days = [week_start + timedelta(days=i) for i in range(7)]
+    week_labels = ["월", "화", "수", "목", "금", "토", "일"]
+
+    # 이번 주와 겹치는 대여 조회
+    week_rentals = conn.execute("""
+        SELECT r.item_id, r.borrower_name, r.rented_at, r.due_date
+        FROM rentals r
+        WHERE r.returned_at IS NULL AND r.cancelled_at IS NULL
+          AND r.rented_at <= ? AND (r.due_date IS NULL OR r.due_date >= ?)
+    """, (week_days[-1].isoformat(), week_days[0].isoformat())).fetchall()
+
+    # {item_id: {date_str: borrower_name}}
+    week_map = {}
+    for r in week_rentals:
+        try:
+            s = date.fromisoformat(str(r["rented_at"])[:10])
+            e = date.fromisoformat(str(r["due_date"])[:10]) if r["due_date"] else date.today()
+        except Exception:
+            continue
+        for d in week_days:
+            if s <= d <= e:
+                week_map.setdefault(r["item_id"], {})[d.isoformat()] = r["borrower_name"]
+
+    conn.close()
     max_date = (date.today() + timedelta(days=31)).isoformat()
-    return render_template("index.html", items=items, today=today, my_rentals=my_rentals, max_date=max_date)
+    return render_template("index.html", items=items, today=today, my_rentals=my_rentals,
+                           max_date=max_date, display_name=display_name,
+                           week_days=week_days, week_labels=week_labels, week_map=week_map)
 
 
 @app.route("/calendar")
