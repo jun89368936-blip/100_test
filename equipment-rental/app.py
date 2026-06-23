@@ -158,10 +158,9 @@ def index():
                ON r.item_id = i.id
               AND r.returned_at IS NULL
               AND r.cancelled_at IS NULL
-              AND r.rented_at <= ?
-              AND (r.due_date IS NULL OR r.due_date > ?)
-        ORDER BY i.sort_order, i.id
-    """, (today, today)).fetchall()
+              AND (r.due_date IS NULL OR r.due_date >= ?)
+        ORDER BY i.sort_order, i.id, r.rented_at ASC
+    """, (today,)).fetchall()
     my_rentals = conn.execute("""
         SELECT r.id, r.item_id, i.name AS item_name, i.type AS item_type,
                r.rented_at, r.due_date
@@ -689,7 +688,8 @@ def admin_rentals():
     all_items = conn.execute("SELECT id, name FROM items ORDER BY sort_order, id").fetchall()
     conn.close()
     return render_template("admin/rentals.html", rows=rows, available_items=available_items,
-                           all_items=all_items, item_filter=item_filter)
+                           all_items=all_items, item_filter=item_filter,
+                           today=date.today().isoformat())
 
 
 @app.route("/admin/rentals/add", methods=["POST"])

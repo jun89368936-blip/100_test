@@ -107,6 +107,7 @@
       <div class="filter-bar">
         <button class="filter-btn active" onclick="filterRows('all', this)">전체</button>
         <button class="filter-btn" onclick="filterRows('active', this)">대여 중</button>
+        <button class="filter-btn" onclick="filterRows('reserved', this)">예약 완료</button>
         <button class="filter-btn" onclick="filterRows('returned', this)">반납 완료</button>
         <button class="filter-btn" onclick="filterRows('cancelled', this)">취소</button>
 
@@ -145,7 +146,8 @@
           </thead>
           <tbody id="rental-tbody">
             {% for r in rows %}
-            <tr data-status="{{ 'cancelled' if r.cancelled_at else ('returned' if r.returned_at else 'active') }}" data-id="{{ r.id }}">
+            {% set row_status = 'cancelled' if r.cancelled_at else ('returned' if r.returned_at else ('active' if r.rented_at[:10] <= today else 'reserved')) %}
+            <tr data-status="{{ row_status }}" data-id="{{ r.id }}">
               <td class="check-col">
                 <input type="checkbox" class="row-check" value="{{ r.id }}" onchange="updateCount()">
               </td>
@@ -164,8 +166,10 @@
                   <span class="status-badge" style="background:#f1f5f9;color:#64748b;">취소</span>
                 {% elif r.returned_at %}
                   <span class="status-badge status-available">반납완료</span>
-                {% else %}
+                {% elif r.rented_at[:10] <= today %}
                   <span class="status-badge status-rented">대여 중</span>
+                {% else %}
+                  <span class="status-badge" style="background:#dbeafe;color:#1d4ed8;">예약 완료</span>
                 {% endif %}
               </td>
               <td>

@@ -155,27 +155,34 @@
               </div>
             </div>
             {% if item.current_borrower %}
-              <span class="status-badge status-rented">대여 중</span>
+              {% if item.current_rented_at[:10] <= today %}
+                <span class="status-badge status-rented">대여 중</span>
+              {% else %}
+                <span class="status-badge" style="background:#dbeafe;color:#1d4ed8;">예약 완료</span>
+              {% endif %}
             {% else %}
               <span class="status-badge status-available">대여 가능</span>
             {% endif %}
           </div>
 
           {% if item.current_borrower %}
+            {% set is_active = item.current_rented_at[:10] <= today %}
             <div class="borrower-info">
               <div class="borrower-name">👤 {{ item.current_borrower }}</div>
-              <div class="due-date">📅 대여일: {{ item.current_rented_at | fmt_date }}</div>
+              <div class="due-date">📅 {{ '대여일' if is_active else '예약 시작일' }}: {{ item.current_rented_at | fmt_date }}</div>
               {% if item.current_due_date %}
                 <div class="due-date">🔔 반납 예정일: {{ item.current_due_date | fmt_date }}</div>
               {% endif %}
             </div>
             <div class="item-card-footer">
-              {% if item.current_borrower == display_name %}
+              {% if item.current_borrower == display_name and is_active %}
               <form method="post" action="/return/{{ item.id }}" style="width:100%">
                 <button type="submit" class="btn btn-success" style="width:100%">✅ 반납하기</button>
               </form>
+              {% elif item.current_borrower == display_name %}
+              <div style="text-align:center;padding:8px 0;font-size:0.84rem;color:#1d4ed8;">📌 내 예약 (대여 전)</div>
               {% else %}
-              <div style="text-align:center;padding:8px 0;font-size:0.84rem;color:#94a3b8;">🔒 다른 사람이 사용 중</div>
+              <div style="text-align:center;padding:8px 0;font-size:0.84rem;color:#94a3b8;">🔒 {{ '대여 중' if is_active else '예약됨' }}</div>
               {% endif %}
             </div>
           {% else %}

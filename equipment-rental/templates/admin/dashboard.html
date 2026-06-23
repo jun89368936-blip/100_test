@@ -97,7 +97,7 @@
       <!-- ② 현재 대여 중인 목록 -->
       <div class="card" style="margin-top:4px;">
         <div class="card-header">
-          <span class="card-title">🔒 현재 대여 중인 물품</span>
+          <span class="card-title">🔒 현재 대여/예약 현황</span>
           <span style="font-size:0.85rem;color:#64748b;">{{ active_rentals|length }}건</span>
         </div>
         {% if active_rentals %}
@@ -108,6 +108,7 @@
               <th>대여자</th>
               <th>대여일</th>
               <th>반납 예정일</th>
+              <th>상태</th>
               <th>강제 반납</th>
             </tr>
           </thead>
@@ -121,6 +122,13 @@
                 {% if r.due_date %}{{ r.due_date | fmt_date }}{% else %}<span style="color:#94a3b8;">—</span>{% endif %}
               </td>
               <td>
+                {% if r.rented_at[:10] <= today %}
+                  <span class="status-badge status-rented">대여 중</span>
+                {% else %}
+                  <span class="status-badge" style="background:#dbeafe;color:#1d4ed8;">예약 완료</span>
+                {% endif %}
+              </td>
+              <td>
                 <form method="post" action="/admin/rentals/return/{{ r.rental_id }}"
                       onsubmit="return confirm('{{ r.item_name }} 을(를) 강제 반납 처리하시겠습니까?')">
                   <button type="submit" class="btn btn-success" style="padding:5px 12px;font-size:0.82rem;">반납 처리</button>
@@ -131,7 +139,7 @@
           </tbody>
         </table>
         {% else %}
-        <div style="padding:28px;text-align:center;color:#94a3b8;">현재 대여 중인 물품이 없습니다.</div>
+        <div style="padding:28px;text-align:center;color:#94a3b8;">현재 대여/예약 중인 물품이 없습니다.</div>
         {% endif %}
       </div>
 
