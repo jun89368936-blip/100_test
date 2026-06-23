@@ -178,19 +178,8 @@
             {% endif %}
           </div>
 
-          {% if cur %}
-          <div class="borrower-info">
-            <div class="borrower-name">👤 {{ cur.borrower_name }}</div>
-            <div class="due-date">📅 {{ '대여일' if is_active else '예약 시작일' }}: {{ cur.rented_at | fmt_date }}</div>
-            {% if cur.due_date %}
-              <div class="due-date">🔔 반납 예정일: {{ cur.due_date | fmt_date }}</div>
-            {% endif %}
-          </div>
-          {% endif %}
-
-          <!-- 대여신청 폼 (항상 표시) -->
           {% if cur and cur.borrower_name == display_name and is_active %}
-            <!-- 본인이 현재 대여 중: 반납 버튼만 -->
+            <!-- 본인이 현재 대여 중: 반납 버튼 -->
             <div class="item-card-footer">
               <form method="post" action="/return/{{ item.id }}" style="width:100%">
                 <button type="submit" class="btn btn-success" style="width:100%">✅ 반납하기</button>
@@ -198,7 +187,7 @@
             </div>
           {% else %}
             <form method="post" action="/rent/{{ item.id }}" class="rent-form">
-              <div class="rent-form-row" style="margin-top:{{ '8px' if cur else '0' }};">
+              <div class="rent-form-row" style="margin-top:0;">
                 <div style="flex:1">
                   <label style="font-size:0.78rem;color:#64748b;margin-bottom:3px;display:block;">대여일</label>
                   <input class="input-field" type="date" name="rented_at" value="{{ today }}"
@@ -249,12 +238,22 @@
                   {% set borrower = week_map.get(item.id, {}).get(iso) %}
                   {% if borrower %}
                     {% if borrower == display_name %}
+                      {% if iso <= today %}
                     <td style="padding:8px 10px;text-align:center;background:#ede9fe;">
                       <span style="font-size:0.78rem;color:#7c3aed;font-weight:700;">내 대여</span>
                     </td>
-                    {% else %}
+                      {% else %}
+                    <td style="padding:8px 10px;text-align:center;background:#ede9fe;">
+                      <span style="font-size:0.78rem;color:#7c3aed;font-weight:700;">내 예약</span>
+                    </td>
+                      {% endif %}
+                    {% elif iso <= today %}
                     <td style="padding:8px 10px;text-align:center;background:#fff7ed;">
                       <span style="font-size:0.78rem;color:#ea580c;font-weight:600;">대여 중</span>
+                    </td>
+                    {% else %}
+                    <td style="padding:8px 10px;text-align:center;background:#dbeafe;">
+                      <span style="font-size:0.78rem;color:#1d4ed8;font-weight:600;">예약완료</span>
                     </td>
                     {% endif %}
                   {% else %}
