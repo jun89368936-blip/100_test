@@ -145,22 +145,29 @@ def startup():
 @app.route("/")
 @login_required
 def index():
+    from datetime import timedelta
     today = date.today().isoformat()
     display_name = session.get("display_name", "")
     conn = get_db()
-    items = conn.execute("""
-        SELECT i.*,
-               r.borrower_name AS current_borrower,
-               r.rented_at     AS current_rented_at,
-               r.due_date      AS current_due_date
-        FROM items i
-        LEFT JOIN rentals r
-               ON r.item_id = i.id
-              AND r.returned_at IS NULL
-              AND r.cancelled_at IS NULL
-              AND (r.due_date IS NULL OR r.due_date >= ?)
-        ORDER BY i.sort_order, i.id, r.rented_at ASC
+
+    # 물품 목록 (정확히 N개, 중복 없음)
+    items = conn.execute(
+        "SELECT * FROM items ORDER BY sort_order, id"
+    ).fetchall()
+
+    # 현재 활성/예약 대여: item_id별 최초 1건 (가장 빠른 시작일)
+    active_rows = conn.execute("""
+        SELECT r.item_id, r.borrower_name, r.rented_at, r.due_date
+        FROM rentals r
+        WHERE r.returned_at IS NULL AND r.cancelled_at IS NULL
+          AND (r.due_date IS NULL OR r.due_date >= ?)
+        ORDER BY r.rented_at ASC
     """, (today,)).fetchall()
+    rental_by_item = {}
+    for r in active_rows:
+        if r["item_id"] not in rental_by_item:
+            rental_by_item[r["item_id"]] = r
+
     my_rentals = conn.execute("""
         SELECT r.id, r.item_id, i.name AS item_name, i.type AS item_type,
                r.rented_at, r.due_date
@@ -170,16 +177,14 @@ def index():
     """, (display_name,)).fetchall()
 
     # 주간 대여현황: 이번 주 월~일 (7일)
-    from datetime import timedelta
-    weekday = date.today().weekday()  # 0=월
+    weekday = date.today().weekday()
     week_start = date.today() - timedelta(days=weekday)
     week_days = [week_start + timedelta(days=i) for i in range(7)]
     week_labels = ["월", "화", "수", "목", "금", "토", "일"]
     week_info = list(zip([d.isoformat() for d in week_days],
                          [d.strftime('%m/%d') for d in week_days],
-                         week_labels))  # (iso_str, mm/dd, 요일)
+                         week_labels))
 
-    # 이번 주와 겹치는 대여 조회
     week_rentals = conn.execute("""
         SELECT r.item_id, r.borrower_name, r.rented_at, r.due_date
         FROM rentals r
@@ -203,6 +208,7 @@ def index():
     max_date = (date.today() + timedelta(days=31)).isoformat()
     return render_template("index.html", items=items, today=today, my_rentals=my_rentals,
                            max_date=max_date, display_name=display_name,
+                           rental_by_item=rental_by_item,
                            week_info=week_info, week_map=week_map)
 
 
@@ -290,7 +296,7 @@ def rent(item_id):
           AND (due_date IS NULL OR due_date > ?)
     """, (item_id, due_date, rented_at)).fetchone()[0]
     if conflict:
-        flash("해당 기간에 이미 대여 중인 물품입니다.", "error")
+        flash("예약불가 — 해당 기간에 이미 예약된 물품입니다.", "error")
         conn.close()
         return redirect(url_for("index"))
     try:

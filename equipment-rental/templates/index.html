@@ -49,16 +49,17 @@
         {% endif %}
       {% endwith %}
 
-      <!-- 내 대여 현황 -->
+      <!-- 내 대여/예약 현황 -->
       {% if my_rentals %}
       <div class="card" style="margin-bottom:20px;border-left:4px solid #7c3aed;">
-        <div style="padding:14px 18px 6px;font-weight:700;color:#7c3aed;font-size:0.95rem;">📌 내가 빌려간 물품</div>
+        <div style="padding:14px 18px 6px;font-weight:700;color:#7c3aed;font-size:0.95rem;">📌 내가 신청한 대여</div>
         <table>
           <thead>
             <tr>
               <th>물품명</th>
               <th>대여일</th>
               <th>반납 예정일</th>
+              <th>상태</th>
               <th>반납</th>
               <th>취소</th>
             </tr>
@@ -76,10 +77,9 @@
               <td style="font-size:0.83rem;color:#64748b;">{{ r.rented_at | fmt_date }}</td>
               <td style="font-size:0.83rem;">
                 {% if r.due_date %}
-                  {% set today_d = today %}
-                  {% if r.due_date < today_d %}
+                  {% if r.due_date < today %}
                     <span style="color:#dc2626;font-weight:700;">⚠️ {{ r.due_date | fmt_date }} 반납 지연</span>
-                  {% elif r.due_date == today_d %}
+                  {% elif r.due_date == today %}
                     <span style="color:#ea580c;font-weight:700;">🔔 오늘 반납 예정</span>
                   {% else %}
                     {{ r.due_date | fmt_date }}
@@ -87,9 +87,20 @@
                 {% else %}—{% endif %}
               </td>
               <td>
+                {% if r.rented_at[:10] <= today %}
+                  <span class="status-badge status-rented">대여 중</span>
+                {% else %}
+                  <span class="status-badge" style="background:#dbeafe;color:#1d4ed8;">예약 완료</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if r.rented_at[:10] <= today %}
                 <form method="post" action="/return/{{ r.item_id }}">
                   <button type="submit" class="btn btn-success" style="padding:5px 12px;font-size:0.82rem;">✅ 반납</button>
                 </form>
+                {% else %}
+                <span style="color:#94a3b8;font-size:0.82rem;">대여 전</span>
+                {% endif %}
               </td>
               <td>
                 <form method="post" action="/cancel/{{ r.id }}"
@@ -106,7 +117,7 @@
 
       <!-- Stats -->
       {% set total = items|length %}
-      {% set rented = items|selectattr('current_borrower')|list|length %}
+      {% set rented = rental_by_item|length %}
       {% set available = total - rented %}
       <div class="stats-row">
         <div class="stat-card">
@@ -126,7 +137,7 @@
         <div class="stat-card">
           <div class="stat-icon orange">🔒</div>
           <div>
-            <div class="stat-label">대여 중</div>
+            <div class="stat-label">대여/예약 중</div>
             <div class="stat-value">{{ rented }}</div>
           </div>
         </div>
@@ -135,6 +146,8 @@
       <!-- Item Cards -->
       <div class="items-grid">
         {% for item in items %}
+          {% set cur = rental_by_item.get(item.id) %}
+          {% set is_active = cur and cur.rented_at[:10] <= today %}
         <div class="item-card">
           <div class="item-card-header">
             <div class="item-icon-name">
@@ -154,8 +167,8 @@
                 </div>
               </div>
             </div>
-            {% if item.current_borrower %}
-              {% if item.current_rented_at[:10] <= today %}
+            {% if cur %}
+              {% if is_active %}
                 <span class="status-badge status-rented">대여 중</span>
               {% else %}
                 <span class="status-badge" style="background:#dbeafe;color:#1d4ed8;">예약 완료</span>
@@ -165,29 +178,27 @@
             {% endif %}
           </div>
 
-          {% if item.current_borrower %}
-            {% set is_active = item.current_rented_at[:10] <= today %}
-            <div class="borrower-info">
-              <div class="borrower-name">👤 {{ item.current_borrower }}</div>
-              <div class="due-date">📅 {{ '대여일' if is_active else '예약 시작일' }}: {{ item.current_rented_at | fmt_date }}</div>
-              {% if item.current_due_date %}
-                <div class="due-date">🔔 반납 예정일: {{ item.current_due_date | fmt_date }}</div>
-              {% endif %}
-            </div>
+          {% if cur %}
+          <div class="borrower-info">
+            <div class="borrower-name">👤 {{ cur.borrower_name }}</div>
+            <div class="due-date">📅 {{ '대여일' if is_active else '예약 시작일' }}: {{ cur.rented_at | fmt_date }}</div>
+            {% if cur.due_date %}
+              <div class="due-date">🔔 반납 예정일: {{ cur.due_date | fmt_date }}</div>
+            {% endif %}
+          </div>
+          {% endif %}
+
+          <!-- 대여신청 폼 (항상 표시) -->
+          {% if cur and cur.borrower_name == display_name and is_active %}
+            <!-- 본인이 현재 대여 중: 반납 버튼만 -->
             <div class="item-card-footer">
-              {% if item.current_borrower == display_name and is_active %}
               <form method="post" action="/return/{{ item.id }}" style="width:100%">
                 <button type="submit" class="btn btn-success" style="width:100%">✅ 반납하기</button>
               </form>
-              {% elif item.current_borrower == display_name %}
-              <div style="text-align:center;padding:8px 0;font-size:0.84rem;color:#1d4ed8;">📌 내 예약 (대여 전)</div>
-              {% else %}
-              <div style="text-align:center;padding:8px 0;font-size:0.84rem;color:#94a3b8;">🔒 {{ '대여 중' if is_active else '예약됨' }}</div>
-              {% endif %}
             </div>
           {% else %}
             <form method="post" action="/rent/{{ item.id }}" class="rent-form">
-              <div class="rent-form-row" style="margin-top:0;">
+              <div class="rent-form-row" style="margin-top:{{ '8px' if cur else '0' }};">
                 <div style="flex:1">
                   <label style="font-size:0.78rem;color:#64748b;margin-bottom:3px;display:block;">대여일</label>
                   <input class="input-field" type="date" name="rented_at" value="{{ today }}"
@@ -199,7 +210,7 @@
                          min="{{ today }}" max="{{ max_date }}" required style="width:100%">
                 </div>
               </div>
-              <button type="submit" class="btn btn-primary" style="width:100%;margin-top:8px;">📤 대여하기</button>
+              <button type="submit" class="btn btn-primary" style="width:100%;margin-top:8px;">📤 대여신청</button>
             </form>
           {% endif %}
         </div>
@@ -235,8 +246,7 @@
                   {{ item.name }}
                 </td>
                 {% for iso, mmdd, label in week_info %}
-                  {% set item_week = week_map.get(item.id, {}) %}
-                  {% set borrower = item_week.get(iso) %}
+                  {% set borrower = week_map.get(item.id, {}).get(iso) %}
                   {% if borrower %}
                     {% if borrower == display_name %}
                     <td style="padding:8px 10px;text-align:center;background:#ede9fe;">
