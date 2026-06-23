@@ -176,6 +176,9 @@ def index():
     week_start = date.today() - timedelta(days=weekday)
     week_days = [week_start + timedelta(days=i) for i in range(7)]
     week_labels = ["월", "화", "수", "목", "금", "토", "일"]
+    week_info = list(zip([d.isoformat() for d in week_days],
+                         [d.strftime('%m/%d') for d in week_days],
+                         week_labels))  # (iso_str, mm/dd, 요일)
 
     # 이번 주와 겹치는 대여 조회
     week_rentals = conn.execute("""
@@ -201,7 +204,7 @@ def index():
     max_date = (date.today() + timedelta(days=31)).isoformat()
     return render_template("index.html", items=items, today=today, my_rentals=my_rentals,
                            max_date=max_date, display_name=display_name,
-                           week_days=week_days, week_labels=week_labels, week_map=week_map)
+                           week_info=week_info, week_map=week_map)
 
 
 @app.route("/calendar")
