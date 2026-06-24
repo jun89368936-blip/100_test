@@ -1019,6 +1019,7 @@ def manage():
 @app.route("/history")
 @login_required
 def history():
+    display_name = session.get("display_name", "")
     conn = get_db()
     rows = conn.execute("""
         SELECT r.id,
@@ -1027,11 +1028,13 @@ def history():
                r.borrower_name,
                r.rented_at,
                r.returned_at,
-               r.due_date
+               r.due_date,
+               r.cancelled_at
         FROM rentals r
         JOIN items i ON i.id = r.item_id
+        WHERE r.borrower_name = ?
         ORDER BY r.id DESC
-    """).fetchall()
+    """, (display_name,)).fetchall()
     conn.close()
     return render_template("history.html", rows=rows)
 
@@ -1045,13 +1048,15 @@ def history_export():
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
 
+    display_name = session.get("display_name", "")
     conn = get_db()
     rows = conn.execute("""
         SELECT r.id, i.name AS item_name, i.type AS item_type,
-               r.borrower_name, r.rented_at, r.due_date, r.returned_at
+               r.borrower_name, r.rented_at, r.due_date, r.returned_at, r.cancelled_at
         FROM rentals r JOIN items i ON i.id = r.item_id
+        WHERE r.borrower_name = ?
         ORDER BY r.id DESC
-    """).fetchall()
+    """, (display_name,)).fetchall()
     conn.close()
 
     TYPE_LABELS = {"drone": "드론", "laptop": "노트북", "camera": "카메라", "etc": "기타"}
