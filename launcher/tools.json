@@ -1,0 +1,100 @@
+{
+  "tools": [
+    {
+      "id": "beompis",
+      "name": "범피스",
+      "type": "exe",
+      "path": "C:\\Users\\장우준\\Desktop\\AI_Agent\\범피스 1125.exe",
+      "cwd": "C:\\Users\\장우준\\Desktop\\AI_Agent",
+      "desc": "범피스 데스크톱 프로그램",
+      "group": "프로그램"
+    },
+    {
+      "id": "tonghap",
+      "name": "통합변환기",
+      "type": "exe",
+      "path": "C:\\Users\\장우준\\Desktop\\AI_Agent\\통합변환기.exe",
+      "cwd": "C:\\Users\\장우준\\Desktop\\AI_Agent",
+      "desc": "파일 통합 변환 프로그램",
+      "group": "프로그램"
+    },
+    {
+      "id": "hwp_style",
+      "name": "HWP스타일이식",
+      "type": "exe",
+      "path": "C:\\Users\\장우준\\Desktop\\AI_Agent\\hwp_style_conversion\\dist\\HWP스타일이식\\HWP스타일이식.exe",
+      "cwd": "C:\\Users\\장우준\\Desktop\\AI_Agent\\hwp_style_conversion\\dist\\HWP스타일이식",
+      "desc": "HWP 문서 스타일 이식 도구",
+      "group": "프로그램"
+    },
+    {
+      "id": "pdf_merger",
+      "name": "설계예산서 PDF 취합기",
+      "type": "exe",
+      "path": "C:\\Users\\장우준\\Desktop\\AI_Agent\\pdf_merger\\dist\\설계예산서_PDF취합기.exe",
+      "cwd": "C:\\Users\\장우준\\Desktop\\AI_Agent\\pdf_merger\\dist",
+      "desc": "표지·간지 + 내역서 PDF 순서대로 취합 (도화 v3.0)",
+      "group": "프로그램"
+    },
+    {
+      "id": "name_changer",
+      "name": "일괄 파일명 변경기",
+      "type": "exe",
+      "path": "C:\\Users\\장우준\\Desktop\\AI_Agent\\name_changer\\dist\\일괄파일명변경기\\일괄파일명변경기.exe",
+      "cwd": "C:\\Users\\장우준\\Desktop\\AI_Agent\\name_changer\\dist\\일괄파일명변경기",
+      "desc": "여러 파일명 앞/뒤 문구·순번 일괄 변경, 찾기바꾸기·미리보기·되돌리기",
+      "group": "프로그램"
+    },
+    {
+      "id": "escalation",
+      "name": "물가상승률 계산기",
+      "type": "html",
+      "path": "C:\\Users\\장우준\\Desktop\\AI_Agent\\물가상승률_계산기v2.html",
+      "cwd": "",
+      "desc": "물가상승률 계산 (v2)",
+      "group": "계산기·도구"
+    },
+    {
+      "id": "sewage_cost",
+      "name": "하수도 개략공사비 산정",
+      "type": "html",
+      "path": "C:\\Users\\장우준\\Desktop\\AI_Agent\\Estimated_cost_sewage\\하수도_개략공사비_산정_v1.4.html",
+      "cwd": "",
+      "desc": "하수도 개략공사비 산정 (v1.4)",
+      "group": "계산기·도구"
+    },
+    {
+      "id": "worktime",
+      "name": "소정근무시간 검토",
+      "type": "html",
+      "path": "C:\\Users\\장우준\\Desktop\\AI_Agent\\소정근무시간 검토\\소정근무시간 검토 ver260507.html",
+      "cwd": "",
+      "desc": "소정근무시간 검토 (ver260507)",
+      "group": "계산기·도구"
+    },
+    {
+      "id": "equipment_rental",
+      "name": "장비 대여",
+      "type": "flask",
+      "path": "C:\\Users\\장우준\\Desktop\\AI_Agent\\equipment-rental\\app.py",
+      "cwd": "C:\\Users\\장우준\\Desktop\\AI_Agent\\equipment-rental",
+      "port": 5001,
+      "desc": "장비 대여 관리 웹앱 (포트 5001)",
+      "group": "웹앱"
+    },
+    {
+      "id": "pdf_merger_web",
+      "name": "PDF 취합기 (웹)",
+      "type": "flask",
+      "path": "C:\\Users\\장우준\\Desktop\\AI_Agent\\pdf_merger_web\\app.py",
+      "cwd": "C:\\Users\\장우준\\Desktop\\AI_Agent\\pdf_merger_web",
+      "port": 5002,
+      "desc": "설계예산서 PDF 취합 — 브라우저에서 업로드·취합 (포트 5002)",
+      "group": "웹앱"
+    }
+  ],
+  "ignore": [
+    "C:\\Users\\장우준\\Desktop\\AI_Agent\\escalation\\물가상승률_계산기.html",
+    "C:\\Users\\장우준\\Desktop\\AI_Agent\\Estimated_cost_sewage\\code_artifact.html"
+  ]
+}

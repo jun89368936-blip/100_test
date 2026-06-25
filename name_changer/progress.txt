@@ -1,0 +1,42 @@
+일괄 파일명 변경기 — 진행 기록
+====================================
+
+목표: 폴더 안 여러 파일의 이름 앞/뒤에 문구·순번을 한 번에 추가. 미리보기·
+안전검사·되돌리기 지원. PyInstaller 로 exe 빌드.
+
+구현 (Phase 1)
+- renamer_core.py : 순수 표준라이브러리 엔진(테스트 대상)
+  - compute_new_names(): 규칙 적용 + 상태(ok/unchanged/collision/illegal/too-long)
+  - apply_renames(): 2단계(임시이름→최종) 전부-아니면-전무, 실패시 롤백
+  - validate_undo(): 되돌리기 전 안전검증
+  - 이름 검증은 '파일명 문자열'에 직접 수행(경로 결합 시 ':' 등이 드라이브로
+    오해되어 변형되는 Windows 버그 회피)
+  - 충돌 비교: casefold + NFC 정규화(대소문자·한글 NFC/NFD)
+- main.py : tkinter GUI. HAS_DND 가드(드래그&드롭 선택). 드롭 파싱은
+  tk.splitlist 로 여러 파일 모두 수용(첫 파일만 쓰지 않음). 미리보기 디바운스.
+- test_renamer_core.py : 14개 테스트(스왑/대소문자/충돌/롤백/NFC/too-long 등)
+- 파일명변경기.spec : onedir, collect_all("tkinterdnd2")
+- build_release.bat : pip install -r → pyinstaller spec --clean -y
+
+검증
+- 엔진 단위테스트 14/14 통과
+- GUI 구성 smoke + 실제 apply/undo 통합테스트 통과(도면_001_a.txt … → 원복)
+
+배운 점 / 주의
+- Windows os.path.join/basename 은 ':' 포함 문자열을 드라이브로 처리 → 이름
+  검증은 결합 전 원본 문자열로.
+- 드롭 다중파일은 tk.splitlist 사용(하우스 hwp 예제의 [0] 단일파일 방식 금지).
+- onedir 채택(onefile 실행 지연 회피, 하우스 관례).
+
+Phase 2 (완료 — 동일 엔진 위에)
+- 찾기·바꾸기: Rule.find/replace, make_new_name 에서 stem 치환
+- 글자 N개 삭제: Rule.remove_front/remove_back (앞/뒤)
+- 적용 순서: 찾기바꾸기 → 앞삭제 → 뒤삭제 → 순번/접두접미
+- 빈 이름 방지: 확장자만 남으면(예: 'ab.txt'→'.txt') ILLEGAL 처리
+  (.gitignore 같은 의도적 dotfile 과 구분하려고 compute_new_names 에서
+   원본 확장자 정보를 이용해 판정)
+- 정렬 확장: 자연정렬(SORT_NAME_NATURAL, 숫자인식 2<10), 크기순(SORT_SIZE),
+  reverse 매개변수(역순)
+- UI: 찾기/바꾸기 입력, 앞/뒤 글자삭제 스핀박스, 자연정렬·크기순 콤보,
+  역순 체크박스 추가
+- 테스트 23개 전부 통과(Phase1 15 + Phase2 8)

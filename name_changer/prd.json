@@ -1,0 +1,51 @@
+{
+  "feature": "일괄 파일명 변경기 — Phase 2",
+  "stories": [
+    {
+      "id": "US-P2-1",
+      "title": "엔진: 찾기·바꾸기 + 글자 N개 삭제(앞/뒤)",
+      "passes": true,
+      "acceptanceCriteria": [
+        "Rule 에 find/replace/remove_front/remove_back 필드 추가",
+        "make_new_name 이 stem 에 find→replace 치환을 적용한다",
+        "make_new_name 이 stem 앞에서 remove_front, 뒤에서 remove_back 글자를 삭제한다",
+        "적용 순서: 찾기바꾸기 → 앞삭제 → 뒤삭제 → 순번/접두접미",
+        "확장자는 여전히 보존된다",
+        "단위 테스트로 각 동작 검증(빈 결과는 illegal 로 차단됨 포함)"
+      ]
+    },
+    {
+      "id": "US-P2-2",
+      "title": "엔진: 정렬 확장(자연정렬·크기순·역순)",
+      "passes": true,
+      "acceptanceCriteria": [
+        "compute_new_names 가 자연정렬(숫자 인식: 2 < 10) 지원",
+        "크기순 정렬 지원(SORT_SIZE)",
+        "reverse 매개변수로 내림차순 지원",
+        "단위 테스트로 자연정렬과 reverse 검증"
+      ]
+    },
+    {
+      "id": "US-P2-3",
+      "title": "UI: 새 규칙/정렬 입력 연결",
+      "passes": true,
+      "acceptanceCriteria": [
+        "main.py 에 찾기/바꾸기 입력란 추가",
+        "앞 N글자 삭제 / 뒤 N글자 삭제 입력 추가",
+        "정렬 콤보에 자연정렬·크기순 추가, 역순 체크박스 추가",
+        "모든 새 입력이 미리보기를 갱신하고 _rule()/정렬에 반영",
+        "GUI smoke + 통합 테스트 통과"
+      ]
+    },
+    {
+      "id": "US-P2-4",
+      "title": "빌드: exe 재빌드 및 실행 검증",
+      "passes": true,
+      "acceptanceCriteria": [
+        "전체 단위 테스트 통과",
+        "PyInstaller 빌드 성공(exit 0)",
+        "빌드된 exe 정상 실행/종료 확인"
+      ]
+    }
+  ]
+}
