@@ -296,6 +296,18 @@ def rent(item_id):
         return redirect(url_for("index"))
 
     conn = get_db()
+    # 본인이 이미 신청(대여/예약)한 동일 물품 중복 신청 차단
+    duplicate = conn.execute("""
+        SELECT COUNT(*) FROM rentals
+        WHERE item_id = ?
+          AND borrower_name = ?
+          AND returned_at IS NULL
+          AND cancelled_at IS NULL
+    """, (item_id, borrower_name)).fetchone()[0]
+    if duplicate:
+        flash("이미 신청한 물품입니다 — 같은 물품은 중복 신청할 수 없습니다.", "error")
+        conn.close()
+        return redirect(url_for("index"))
     # 날짜 범위 겹침 체크 (반납예정일 당일은 새 대여 허용)
     conflict = conn.execute("""
         SELECT COUNT(*) FROM rentals
