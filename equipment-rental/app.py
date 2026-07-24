@@ -52,6 +52,21 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
+
+def user_or_admin_required(f):
+    """일반 로그인 또는 관리자 PIN 로그인 중 하나면 통과.
+
+    관리자 PIN 로그인은 user_id 를 만들지 않으므로, 관리자 달력이 쓰는
+    공용 API 는 login_required 로 막으면 로그인 페이지로 되돌아간다.
+    """
+    from functools import wraps
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("user_id") and not session.get("is_admin"):
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated
+
 ITEM_COLORS = ["#3788d8", "#e67e22", "#27ae60", "#8e44ad", "#c0392b"]
 
 
@@ -297,7 +312,7 @@ def admin_calendar():
 
 
 @app.route("/api/events")
-@login_required
+@user_or_admin_required
 def api_events():
     conn = get_db()
     rows = conn.execute("""
