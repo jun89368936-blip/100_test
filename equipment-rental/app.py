@@ -157,6 +157,13 @@ def handle_exception(e):
     print(f"[ERROR] {request.method} {request.path}", file=sys.stderr)
     traceback.print_exc()
     sys.stderr.flush()
+    if "could not translate host name" in str(e) or "could not connect" in str(e):
+        return (
+            "데이터베이스에 연결할 수 없습니다.\n\n"
+            "Render의 PostgreSQL 인스턴스가 만료·삭제되었을 수 있습니다.\n"
+            "새 데이터베이스를 생성한 뒤 DATABASE_URL 환경변수를 교체해주세요.\n\n"
+            f"({type(e).__name__})", 503,
+            {"Content-Type": "text/plain; charset=utf-8"})
     return (f"Internal Server Error\n\n{type(e).__name__}: {e}", 500,
             {"Content-Type": "text/plain; charset=utf-8"})
 

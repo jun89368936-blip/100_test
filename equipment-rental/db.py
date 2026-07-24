@@ -72,6 +72,15 @@ def get_db():
     return _Connection(conn, False)
 
 
+DEFAULT_ITEMS = [
+    ("드론(산업용)", "drone"),
+    ("드론 1호(일반)", "drone"),
+    ("드론 2호(일반)", "drone"),
+    ("노트북1", "laptop"),
+    ("노트북2", "laptop"),
+]
+
+
 def init_db():
     conn = get_db()
     if _USE_PG:
@@ -153,6 +162,20 @@ def init_db():
     try:
         conn.execute("ALTER TABLE rentals ADD COLUMN cancelled_at TEXT")
         conn.commit()
+    except Exception:
+        try:
+            conn._conn.rollback()
+        except Exception:
+            pass
+    # 빈 DB일 때 기본 물품 자동 등록 (신규 DB 전환 시 복구용)
+    try:
+        if conn.execute("SELECT COUNT(*) FROM items").fetchone()[0] == 0:
+            for idx, (name, item_type) in enumerate(DEFAULT_ITEMS):
+                conn.execute(
+                    "INSERT INTO items (name, type, sort_order) VALUES (?, ?, ?)",
+                    (name, item_type, idx),
+                )
+            conn.commit()
     except Exception:
         try:
             conn._conn.rollback()
