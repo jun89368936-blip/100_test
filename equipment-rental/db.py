@@ -3,8 +3,31 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+def _normalize_db_url(url):
+    """호스팅 제공자별 DATABASE_URL 차이를 psycopg2가 이해하는 형태로 맞춘다.
+
+    - postgres:// 스킴을 postgresql:// 로 통일
+    - channel_binding 파라미터 제거 (Neon이 붙여주지만 psycopg2가 인식 못함)
+    - sslmode 미지정 시 require 추가 (Neon/Supabase는 SSL 필수)
+    """
+    if not url:
+        return url
+    from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
+
+    parts = urlsplit(url)
+    scheme = "postgresql" if parts.scheme == "postgres" else parts.scheme
+    query = [(k, v) for k, v in parse_qsl(parts.query) if k != "channel_binding"]
+    if not any(k == "sslmode" for k, _ in query):
+        query.append(("sslmode", "require"))
+    return urlunsplit((scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
+
+DATABASE_URL = _normalize_db_url(os.getenv("DATABASE_URL"))
 _USE_PG = bool(DATABASE_URL)
+
+# Neon 등 절전형 DB는 첫 연결이 깨어나는 동안 실패할 수 있어 재시도한다.
+_CONNECT_RETRIES = 3
+_CONNECT_BACKOFF = 2.0
 
 if _USE_PG:
     import psycopg2
@@ -67,7 +90,19 @@ class _Connection:
 
 def get_db():
     if _USE_PG:
-        return _Connection(psycopg2.connect(DATABASE_URL), True)
+        import time
+        last_error = None
+        for attempt in range(_CONNECT_RETRIES):
+            try:
+                return _Connection(psycopg2.connect(DATABASE_URL, connect_timeout=10), True)
+            except psycopg2.OperationalError as e:
+                # 호스트 자체가 없으면 재시도해도 소용없다
+                if "could not translate host name" in str(e):
+                    raise
+                last_error = e
+                if attempt < _CONNECT_RETRIES - 1:
+                    time.sleep(_CONNECT_BACKOFF * (attempt + 1))
+        raise last_error
     conn = sqlite3.connect(DB_PATH)
     return _Connection(conn, False)
 
