@@ -130,8 +130,12 @@ def init_db():
     # 기존 유니크 인덱스 제거 (날짜 범위 겹침 체크로 대체)
     try:
         conn.execute("DROP INDEX IF EXISTS ux_active_rental")
+        conn.commit()
     except Exception:
-        pass
+        try:
+            conn._conn.rollback()
+        except Exception:
+            pass
     # sort_order 컬럼 추가 (기존 DB 마이그레이션)
     try:
         conn.execute("ALTER TABLE items ADD COLUMN sort_order INTEGER DEFAULT 0")

@@ -138,8 +138,26 @@ _db_initialized = False
 def startup():
     global _db_initialized
     if not _db_initialized:
-        init_db()
+        try:
+            init_db()
+        except Exception:
+            import traceback, sys
+            print("[init_db FAILED]", file=sys.stderr)
+            traceback.print_exc()
         _db_initialized = True
+
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    """예외 트레이스백을 로그로 남긴다 (Render 로그에서 확인 가능)."""
+    from werkzeug.exceptions import HTTPException
+    if isinstance(e, HTTPException):
+        return e
+    import traceback, sys
+    print(f"[ERROR] {request.method} {request.path}", file=sys.stderr)
+    traceback.print_exc()
+    sys.stderr.flush()
+    return ("Internal Server Error", 500)
 
 
 @app.route("/")
