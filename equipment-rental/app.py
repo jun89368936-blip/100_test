@@ -342,7 +342,11 @@ def api_events():
             "extendedProps": {"status": status, "borrower": r["borrower_name"]},
         })
 
-    return jsonify(events)
+    # 대여 내역은 수시로 바뀌므로 브라우저가 이전 응답을 재사용하지 않도록 한다
+    resp = jsonify(events)
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
 
 
 @app.route("/rent/<int:item_id>", methods=["POST"])
