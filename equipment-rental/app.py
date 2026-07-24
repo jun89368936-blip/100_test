@@ -1087,6 +1087,114 @@ def admin_reset_password(user_id):
     return redirect(url_for("admin_users"))
 
 
+@app.route("/admin/backup")
+@admin_required
+def admin_backup():
+    """전체 데이터를 JSON 파일로 내려받는다. 복원 시 그대로 되돌릴 수 있다."""
+    import io, json
+    from flask import send_file
+
+    conn = get_db()
+    data = {
+        "exported_at": datetime.now().isoformat(timespec="seconds"),
+        "items": [dict(r) for r in conn.execute(
+            "SELECT name, type, sort_order FROM items ORDER BY sort_order, id").fetchall()],
+        "users": [dict(r) for r in conn.execute(
+            "SELECT username, display_name, password_hash FROM users ORDER BY id").fetchall()],
+        "rentals": [dict(r) for r in conn.execute("""
+            SELECT i.name AS item_name, r.borrower_name, r.rented_at,
+                   r.due_date, r.returned_at, r.cancelled_at
+            FROM rentals r JOIN items i ON i.id = r.item_id
+            ORDER BY r.id
+        """).fetchall()],
+    }
+    conn.close()
+
+    buf = io.BytesIO(json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8"))
+    buf.seek(0)
+    return send_file(
+        buf, mimetype="application/json", as_attachment=True,
+        download_name=f"backup_{date.today().isoformat()}.json",
+    )
+
+
+@app.route("/admin/backup/page")
+@admin_required
+def admin_backup_page():
+    conn = get_db()
+    counts = {
+        "items": conn.execute("SELECT COUNT(*) FROM items").fetchone()[0],
+        "users": conn.execute("SELECT COUNT(*) FROM users").fetchone()[0],
+        "rentals": conn.execute("SELECT COUNT(*) FROM rentals").fetchone()[0],
+    }
+    conn.close()
+    return render_template("admin/backup.html", counts=counts, today=date.today().isoformat())
+
+
+@app.route("/admin/restore", methods=["POST"])
+@admin_required
+def admin_restore():
+    """백업 JSON을 올려 데이터를 되돌린다. 기존 데이터는 지우지 않고 없는 것만 추가한다."""
+    import json
+
+    f = request.files.get("backup_file")
+    if not f or not f.filename:
+        flash("백업 파일을 선택해주세요.", "error")
+        return redirect(url_for("admin_backup_page"))
+    try:
+        data = json.load(f.stream)
+    except Exception:
+        flash("백업 파일을 읽을 수 없습니다. JSON 형식이 맞는지 확인해주세요.", "error")
+        return redirect(url_for("admin_backup_page"))
+
+    conn = get_db()
+    added = {"items": 0, "users": 0, "rentals": 0}
+
+    for it in data.get("items", []):
+        exists = conn.execute("SELECT id FROM items WHERE name = ?", (it["name"],)).fetchone()
+        if exists:
+            continue
+        conn.execute("INSERT INTO items (name, type, sort_order) VALUES (?, ?, ?)",
+                     (it["name"], it.get("type", "etc"), it.get("sort_order", 0)))
+        conn.commit()
+        added["items"] += 1
+
+    for u in data.get("users", []):
+        exists = conn.execute("SELECT id FROM users WHERE username = ?", (u["username"],)).fetchone()
+        if exists:
+            continue
+        conn.execute(
+            "INSERT INTO users (username, display_name, password_hash) VALUES (?, ?, ?)",
+            (u["username"], u["display_name"], u["password_hash"]))
+        conn.commit()
+        added["users"] += 1
+
+    name_to_id = {r["name"]: r["id"]
+                  for r in conn.execute("SELECT id, name FROM items").fetchall()}
+    for r in data.get("rentals", []):
+        item_id = name_to_id.get(r.get("item_name"))
+        if not item_id:
+            continue
+        # 같은 물품·대여자·대여일 기록이 이미 있으면 건너뛴다
+        dup = conn.execute(
+            "SELECT id FROM rentals WHERE item_id = ? AND borrower_name = ? AND rented_at = ?",
+            (item_id, r["borrower_name"], r["rented_at"])).fetchone()
+        if dup:
+            continue
+        conn.execute("""
+            INSERT INTO rentals (item_id, borrower_name, rented_at, due_date, returned_at, cancelled_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (item_id, r["borrower_name"], r["rented_at"],
+              r.get("due_date"), r.get("returned_at"), r.get("cancelled_at")))
+        conn.commit()
+        added["rentals"] += 1
+
+    conn.close()
+    flash(f"복원 완료 — 물품 {added['items']}건, 부서원 {added['users']}명, "
+          f"대여기록 {added['rentals']}건을 추가했습니다.", "success")
+    return redirect(url_for("admin_backup_page"))
+
+
 # 기존 /manage 경로 하위 호환 유지
 @app.route("/manage")
 @admin_required

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>백업 / 복원</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .admin-sidebar { background: #1a0533; }
+    .admin-badge { background:#7c3aed; color:#fff; font-size:0.7rem; padding:2px 7px; border-radius:10px; margin-left:6px; vertical-align:middle; }
+    .admin-nav-section { font-size:0.7rem; color:#a78bfa; text-transform:uppercase; letter-spacing:.08em; padding:18px 20px 6px; }
+    .count-row { display:flex; gap:12px; margin:14px 0 4px; flex-wrap:wrap; }
+    .count-box { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 20px; }
+    .count-box .label { font-size:0.78rem; color:#64748b; }
+    .count-box .value { font-size:1.4rem; font-weight:700; color:#1e293b; }
+    .notice { background:#fffbeb; border-left:4px solid #f59e0b; padding:12px 16px; border-radius:6px; font-size:0.85rem; color:#78350f; line-height:1.6; }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <aside class="sidebar admin-sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-icon">🛡️</span>
+      <h1>관리자<br>모드</h1>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="admin-nav-section">관리</div>
+      <a href="/admin" class="nav-item"><span class="icon">📊</span> 대시보드</a>
+      <a href="/admin/items" class="nav-item"><span class="icon">📦</span> 물품 관리</a>
+      <a href="/admin/rentals" class="nav-item"><span class="icon">📋</span> 대여 관리</a>
+      <a href="/admin/users" class="nav-item"><span class="icon">👥</span> 부서원 관리</a>
+      <a href="/admin/calendar" class="nav-item"><span class="icon">📅</span> 달력 보기</a>
+      <a href="/admin/backup/page" class="nav-item active"><span class="icon">💾</span> 백업 / 복원</a>
+      <div class="admin-nav-section">이동</div>
+      <a href="/" class="nav-item"><span class="icon">🏠</span> 일반 화면</a>
+      <a href="/admin/logout" class="nav-item"><span class="icon">🔓</span> 로그아웃</a>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <h2>백업 / 복원 <span class="admin-badge">ADMIN</span></h2>
+      <span style="font-size:0.85rem;color:#64748b;">{{ today }}</span>
+    </div>
+
+    <div class="page-content">
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-wrap">
+            {% for category, message in messages %}
+              <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <!-- 백업 -->
+      <div class="add-card" style="border-left:4px solid #16a34a;">
+        <h3>💾 전체 백업 다운로드</h3>
+        <p style="font-size:0.85rem;color:#64748b;margin:6px 0 0;">
+          물품·부서원·대여기록 전체를 JSON 파일 하나로 내려받습니다.<br>
+          데이터베이스에 문제가 생겨도 이 파일만 있으면 그대로 되돌릴 수 있습니다.
+        </p>
+
+        <div class="count-row">
+          <div class="count-box"><div class="label">물품</div><div class="value">{{ counts.items }}</div></div>
+          <div class="count-box"><div class="label">부서원</div><div class="value">{{ counts.users }}</div></div>
+          <div class="count-box"><div class="label">대여기록</div><div class="value">{{ counts.rentals }}</div></div>
+        </div>
+
+        <a href="/admin/backup" class="btn btn-success" style="margin-top:12px;display:inline-block;">
+          📥 백업 파일 받기
+        </a>
+      </div>
+
+      <!-- 복원 -->
+      <div class="add-card" style="border-left:4px solid #7c3aed;margin-top:16px;">
+        <h3>♻️ 백업에서 복원</h3>
+        <p style="font-size:0.85rem;color:#64748b;margin:6px 0 12px;">
+          내려받아 둔 백업 파일을 올리면 데이터를 되돌립니다.
+        </p>
+
+        <div class="notice">
+          기존 데이터는 지우지 않고 <strong>없는 항목만 추가</strong>합니다.
+          같은 물품·대여자·대여일 기록은 중복으로 넣지 않으므로 여러 번 올려도 안전합니다.
+        </div>
+
+        <form method="post" action="/admin/restore" enctype="multipart/form-data"
+              style="display:flex;gap:8px;align-items:center;margin-top:14px;flex-wrap:wrap;"
+              onsubmit="return confirm('백업 파일의 내용을 현재 데이터에 추가합니다. 진행할까요?')">
+          <input class="input-field" type="file" name="backup_file" accept=".json,application/json"
+                 required style="flex:1;min-width:220px;">
+          <button type="submit" class="btn btn-primary">복원 실행</button>
+        </form>
+      </div>
+
+      <div style="margin-top:18px;font-size:0.8rem;color:#94a3b8;line-height:1.7;">
+        💡 <strong>권장 주기</strong> — 매달 1회 정도 백업 파일을 받아 개인 PC나 사내 드라이브에 보관해 두세요.
+        백업 파일에는 부서원 계정 정보가 들어 있으니 외부에 공유하지 마세요.
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>
