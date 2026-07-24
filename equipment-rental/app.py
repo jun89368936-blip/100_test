@@ -157,7 +157,48 @@ def handle_exception(e):
     print(f"[ERROR] {request.method} {request.path}", file=sys.stderr)
     traceback.print_exc()
     sys.stderr.flush()
-    return ("Internal Server Error", 500)
+    return (f"Internal Server Error\n\n{type(e).__name__}: {e}", 500,
+            {"Content-Type": "text/plain; charset=utf-8"})
+
+
+@app.route("/health/db")
+def health_db():
+    """DB 연결·스키마 진단 (문제 해결 후 제거 예정)."""
+    import traceback
+    lines = []
+    try:
+        from db import _USE_PG
+        lines.append(f"backend: {'postgresql' if _USE_PG else 'sqlite'}")
+    except Exception as e:
+        lines.append(f"backend: unknown ({e})")
+    try:
+        conn = get_db()
+        lines.append("connect: OK")
+        for table in ("users", "items", "rentals"):
+            try:
+                n = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+                lines.append(f"{table}: {n} rows")
+            except Exception as e:
+                try:
+                    conn._conn.rollback()
+                except Exception:
+                    pass
+                lines.append(f"{table}: ERROR {type(e).__name__}: {e}")
+        for table, col in (("items", "sort_order"), ("rentals", "cancelled_at")):
+            try:
+                conn.execute(f"SELECT {col} FROM {table} LIMIT 1").fetchone()
+                lines.append(f"{table}.{col}: OK")
+            except Exception as e:
+                try:
+                    conn._conn.rollback()
+                except Exception:
+                    pass
+                lines.append(f"{table}.{col}: MISSING {type(e).__name__}: {e}")
+        conn.close()
+    except Exception:
+        lines.append("connect: FAILED")
+        lines.append(traceback.format_exc())
+    return ("\n".join(lines), 200, {"Content-Type": "text/plain; charset=utf-8"})
 
 
 @app.route("/")
