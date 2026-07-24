@@ -164,7 +164,7 @@ def handle_exception(e):
             "새 데이터베이스를 생성한 뒤 DATABASE_URL 환경변수를 교체해주세요.\n\n"
             f"({type(e).__name__})", 503,
             {"Content-Type": "text/plain; charset=utf-8"})
-    return (f"Internal Server Error\n\n{type(e).__name__}: {e}", 500,
+    return ("일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.", 500,
             {"Content-Type": "text/plain; charset=utf-8"})
 
 
