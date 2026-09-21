@@ -1,0 +1,50 @@
+name: Build APK
+
+on:
+  push:
+    paths:
+      - 'Estimated_cost_sewage/android-app/**'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.5'
+
+      - name: Build Debug APK
+        working-directory: Estimated_cost_sewage/android-app
+        run: gradle assembleDebug --no-daemon
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 하수도_개략공사비_앱
+          path: Estimated_cost_sewage/android-app/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-v1.0
+          name: 하수도 개략공사비 산정 앱 v1.0
+          files: Estimated_cost_sewage/android-app/app/build/outputs/apk/debug/app-debug.apk
+          body: |
+            ## 하수도 개략공사비 산정 시스템 Android 앱
+
+            APK 파일 다운로드 후 설치하세요.
+            설치 시 "알 수 없는 출처 허용" 설정이 필요합니다.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
