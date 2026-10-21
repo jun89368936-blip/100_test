@@ -202,6 +202,16 @@ def init_db():
             conn._conn.rollback()
         except Exception:
             pass
+    # 고장 수리 기간 컬럼 추가 (기존 DB 마이그레이션)
+    for col in ("maintenance_from", "maintenance_until"):
+        try:
+            conn.execute(f"ALTER TABLE items ADD COLUMN {col} TEXT")
+            conn.commit()
+        except Exception:
+            try:
+                conn._conn.rollback()
+            except Exception:
+                pass
     # 빈 DB일 때 기본 물품 자동 등록 (신규 DB 전환 시 복구용)
     try:
         if conn.execute("SELECT COUNT(*) FROM items").fetchone()[0] == 0:

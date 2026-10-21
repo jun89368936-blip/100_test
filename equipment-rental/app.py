@@ -285,11 +285,19 @@ def index():
             if s <= d <= e:
                 week_map.setdefault(r["item_id"], {})[d.isoformat()] = r["borrower_name"]
 
+    # 고장 수리 기간 (아직 끝나지 않은 것만): {item_id: (from, until)}
+    maint_by_item = {}
+    for it in items:
+        mf = it["maintenance_from"] if "maintenance_from" in it else None
+        mu = it["maintenance_until"] if "maintenance_until" in it else None
+        if mf and mu and mu >= today:
+            maint_by_item[it["id"]] = (mf, mu)
+
     conn.close()
     max_date = (date.today() + timedelta(days=31)).isoformat()
     return render_template("index.html", items=items, today=today, my_rentals=my_rentals,
                            max_date=max_date, display_name=display_name,
-                           rental_by_item=rental_by_item,
+                           rental_by_item=rental_by_item, maint_by_item=maint_by_item,
                            week_info=week_info, week_map=week_map)
 
 
@@ -323,6 +331,10 @@ def api_events():
         WHERE r.cancelled_at IS NULL
         ORDER BY r.id DESC
     """).fetchall()
+    maint_rows = conn.execute(
+        "SELECT name, maintenance_from, maintenance_until FROM items "
+        "WHERE maintenance_from IS NOT NULL AND maintenance_until IS NOT NULL"
+    ).fetchall()
     conn.close()
 
     events = []
@@ -355,6 +367,23 @@ def api_events():
             "color": color,
             "textColor": "#fff" if not is_returned else "#6b7280",
             "extendedProps": {"status": status, "borrower": r["borrower_name"]},
+        })
+
+    # 고장 수리 기간을 달력에 표시
+    from datetime import timedelta as _mtd
+    for m in maint_rows:
+        try:
+            m_end = (date.fromisoformat(m["maintenance_until"][:10]) + _mtd(days=1)).isoformat()
+        except Exception:
+            m_end = m["maintenance_until"]
+        events.append({
+            "id": f"maint-{m['name']}",
+            "title": f"🔧 {m['name']} 고장 수리중",
+            "start": m["maintenance_from"][:10],
+            "end": m_end,
+            "color": "#b91c1c",
+            "textColor": "#fff",
+            "extendedProps": {"status": "고장 수리중", "borrower": "-"},
         })
 
     # 대여 내역은 수시로 바뀌므로 브라우저가 이전 응답을 재사용하지 않도록 한다
@@ -393,6 +422,16 @@ def rent(item_id):
         flash("이미 신청한 물품입니다 — 같은 물품은 중복 신청할 수 없습니다.", "error")
         conn.close()
         return redirect(url_for("index"))
+    # 고장 수리 기간과 겹치면 예약 차단
+    item_row = conn.execute(
+        "SELECT maintenance_from, maintenance_until FROM items WHERE id = ?",
+        (item_id,),
+    ).fetchone()
+    if item_row and item_row["maintenance_from"] and item_row["maintenance_until"]:
+        if rented_at <= item_row["maintenance_until"] and due_date >= item_row["maintenance_from"]:
+            flash("예약불가 — 고장 수리 기간입니다.", "error")
+            conn.close()
+            return redirect(url_for("index"))
     # 날짜 범위 겹침 체크 (반납예정일 당일은 새 대여 허용)
     conflict = conn.execute("""
         SELECT COUNT(*) FROM rentals

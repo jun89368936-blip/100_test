@@ -148,7 +148,9 @@
         {% for item in items %}
           {% set cur = rental_by_item.get(item.id) %}
           {% set is_active = cur and cur.rented_at[:10] <= today %}
-        <div class="item-card">
+          {% set maint = maint_by_item.get(item.id) %}
+          {% set under_maint = maint and maint[0] <= today %}
+        <div class="item-card"{% if maint %} style="border:1.5px solid #fca5a5;"{% endif %}>
           <div class="item-card-header">
             <div class="item-icon-name">
               <div class="item-type-icon {{ item.type }}">
@@ -167,7 +169,11 @@
                 </div>
               </div>
             </div>
-            {% if cur %}
+            {% if under_maint %}
+              <span class="status-badge" style="background:#fee2e2;color:#b91c1c;">🔧 고장 수리중</span>
+            {% elif maint %}
+              <span class="status-badge" style="background:#ffedd5;color:#c2410c;">🔧 수리 예정</span>
+            {% elif cur %}
               {% if is_active %}
                 <span class="status-badge status-rented">대여 중</span>
               {% else %}
@@ -178,7 +184,15 @@
             {% endif %}
           </div>
 
-          {% if cur and cur.borrower_name == display_name and is_active %}
+          {% if maint %}
+            <div style="margin-top:10px;padding:12px;border-radius:8px;background:#fef2f2;border:1px solid #fecaca;text-align:center;">
+              <div style="font-size:0.9rem;font-weight:700;color:#b91c1c;">🔧 고장 수리 기간</div>
+              <div style="font-size:0.82rem;color:#7f1d1d;margin-top:4px;">
+                {{ maint[0] | fmt_date }} ~ {{ maint[1] | fmt_date }}
+              </div>
+              <div style="font-size:0.78rem;color:#9ca3af;margin-top:6px;">이 기간에는 예약할 수 없습니다.</div>
+            </div>
+          {% elif cur and cur.borrower_name == display_name and is_active %}
             <!-- 본인이 현재 대여 중: 반납 버튼 -->
             <div class="item-card-footer">
               <form method="post" action="/return/{{ item.id }}" style="width:100%">
@@ -236,7 +250,12 @@
                 </td>
                 {% for iso, mmdd, label in week_info %}
                   {% set borrower = week_map.get(item.id, {}).get(iso) %}
-                  {% if borrower %}
+                  {% set wmaint = maint_by_item.get(item.id) %}
+                  {% if wmaint and wmaint[0] <= iso and iso <= wmaint[1] %}
+                    <td style="padding:8px 10px;text-align:center;background:#fee2e2;">
+                      <span style="font-size:0.78rem;color:#b91c1c;font-weight:700;">🔧 수리중</span>
+                    </td>
+                  {% elif borrower %}
                     {% if borrower == display_name %}
                       {% if iso <= today %}
                     <td style="padding:8px 10px;text-align:center;background:#ede9fe;">
