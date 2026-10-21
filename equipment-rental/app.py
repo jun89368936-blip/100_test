@@ -750,7 +750,7 @@ def admin_items():
         FROM items i ORDER BY i.sort_order, i.id
     """, (today, today)).fetchall()
     conn.close()
-    return render_template("admin/items.html", items=items)
+    return render_template("admin/items.html", items=items, today=today)
 
 
 @app.route("/admin/items/add", methods=["POST"])
@@ -787,6 +787,51 @@ def admin_move_item(item_id, direction):
         conn.execute("UPDATE items SET sort_order = ? WHERE id = ?", (a["sort_order"], b["id"]))
         conn.commit()
     conn.close()
+    return redirect(url_for("admin_items"))
+
+
+@app.route("/admin/items/maintenance/<int:item_id>", methods=["POST"])
+@admin_required
+def admin_set_maintenance(item_id):
+    m_from = request.form.get("maintenance_from", "").strip()
+    m_until = request.form.get("maintenance_until", "").strip()
+    conn = get_db()
+    item = conn.execute("SELECT name FROM items WHERE id = ?", (item_id,)).fetchone()
+    if not item:
+        flash("존재하지 않는 물품입니다.", "error")
+        conn.close()
+        return redirect(url_for("admin_items"))
+    if not m_from or not m_until:
+        flash("수리 시작일과 종료일을 모두 입력해주세요.", "error")
+        conn.close()
+        return redirect(url_for("admin_items"))
+    if m_from > m_until:
+        flash("수리 종료일이 시작일보다 빠를 수 없습니다.", "error")
+        conn.close()
+        return redirect(url_for("admin_items"))
+    conn.execute(
+        "UPDATE items SET maintenance_from = ?, maintenance_until = ? WHERE id = ?",
+        (m_from, m_until, item_id),
+    )
+    conn.commit()
+    conn.close()
+    flash(f"'{item['name']}' 고장 수리 기간이 설정되었습니다 ({m_from} ~ {m_until}).", "success")
+    return redirect(url_for("admin_items"))
+
+
+@app.route("/admin/items/maintenance/<int:item_id>/clear", methods=["POST"])
+@admin_required
+def admin_clear_maintenance(item_id):
+    conn = get_db()
+    item = conn.execute("SELECT name FROM items WHERE id = ?", (item_id,)).fetchone()
+    conn.execute(
+        "UPDATE items SET maintenance_from = NULL, maintenance_until = NULL WHERE id = ?",
+        (item_id,),
+    )
+    conn.commit()
+    conn.close()
+    name = item["name"] if item else "물품"
+    flash(f"'{name}' 수리 기간이 해제되었습니다. 다시 대여할 수 있습니다.", "success")
     return redirect(url_for("admin_items"))
 
 
