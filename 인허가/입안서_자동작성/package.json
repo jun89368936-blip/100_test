@@ -1,0 +1,18 @@
+{
+  "name": "ipansuh-auto",
+  "version": "0.1.0",
+  "description": "도시계획시설결정 입안서류 자동작성기 — 설계보고서·현황분석 보고서를 등록하면 입안서류(HWPX)를 조립한다",
+  "private": true,
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "preview": "node src/preview/server.js",
+    "test": "node --test \"test/**/*.test.js\""
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "kordoc": "4.24.0"
+  }
+}
