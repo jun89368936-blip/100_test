@@ -75,21 +75,19 @@
     {
       "id": "equipment_rental",
       "name": "장비 대여",
-      "type": "flask",
-      "path": "C:\\Users\\장우준\\Desktop\\AI_Agent\\equipment-rental\\app.py",
+      "type": "exe",
+      "path": "C:\\Users\\장우준\\Desktop\\AI_Agent\\equipment-rental\\장비대여_웹.exe",
       "cwd": "C:\\Users\\장우준\\Desktop\\AI_Agent\\equipment-rental",
-      "port": 5001,
-      "desc": "장비 대여 관리 웹앱 (포트 5001)",
+      "desc": "장비 대여 관리 웹앱 (exe, 포트 5001)",
       "group": "웹앱"
     },
     {
       "id": "pdf_merger_web",
       "name": "PDF 취합기 (웹)",
-      "type": "flask",
-      "path": "C:\\Users\\장우준\\Desktop\\AI_Agent\\pdf_merger_web\\app.py",
+      "type": "exe",
+      "path": "C:\\Users\\장우준\\Desktop\\AI_Agent\\pdf_merger_web\\PDF취합기_웹.exe",
       "cwd": "C:\\Users\\장우준\\Desktop\\AI_Agent\\pdf_merger_web",
-      "port": 5002,
-      "desc": "설계예산서 PDF 취합 — 브라우저에서 업로드·취합 (포트 5002)",
+      "desc": "설계예산서 PDF 취합 — 브라우저에서 업로드·취합 (exe, 포트 5002)",
       "group": "웹앱"
     }
   ],
