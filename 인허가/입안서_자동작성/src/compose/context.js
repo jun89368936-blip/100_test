@@ -28,6 +28,7 @@ function loadProject(file) {
     parcels: (raw.parcels || []).map(entry).map(resolve),
     drawings: Object.fromEntries(Object.entries(raw.drawings || {}).map(([k, f]) => [k, path.resolve(dir, f)])),
     landmaps: Object.fromEntries(Object.entries(raw.landmaps || {}).map(([k, f]) => [k, path.resolve(dir, f)])),
+    designs: Object.fromEntries(Object.entries(raw.designs || {}).map(([k, f]) => [k, path.resolve(dir, f)])),
     logo: raw.logo ? path.resolve(dir, raw.logo) : null,
   };
 }
@@ -103,9 +104,9 @@ async function prepare(project, opts = {}) {
     warnings.push(...r.warnings);
   }
 
-  // 첨부 그림: project.drawings(결정(안)도)·project.landmaps(용지도) = {시설id: 그림 파일}.
+  // 첨부 그림: project.drawings(결정(안)도)·landmaps(용지도)·designs(배수지 설계도) = {시설id: 그림 파일}.
   // 미리보기에서는 /img/첨부/<종류>_<시설id><확장자> 로 보인다
-  const attachments = { docId: '첨부', parsed: { images: new Map() }, drawings: {}, landmaps: {}, logo: null };
+  const attachments = { docId: '첨부', parsed: { images: new Map() }, drawings: {}, landmaps: {}, designs: {}, logo: null };
   if (project.logo) {
     if (!fs.existsSync(project.logo)) warnings.push(`표지 로고 파일이 없습니다: ${project.logo}`);
     else {
@@ -114,7 +115,7 @@ async function prepare(project, opts = {}) {
       attachments.logo = `첨부/${name}`;
     }
   }
-  for (const [kind, label] of [['drawings', '결정(안)도'], ['landmaps', '용지도']]) {
+  for (const [kind, label] of [['drawings', '결정(안)도'], ['landmaps', '용지도'], ['designs', '배수지 설계도']]) {
     for (const [fid, file] of Object.entries(project[kind] || {})) {
       if (!fs.existsSync(file)) { warnings.push(`${label} 파일이 없습니다: ${file}`); continue; }
       const name = `${kind === 'drawings' ? '' : `${kind}_`}${fid}${path.extname(file).toLowerCase()}`;

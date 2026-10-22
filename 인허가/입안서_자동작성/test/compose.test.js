@@ -83,14 +83,11 @@ test('샘플 프로젝트 조립: 목차는 완성 장, 나머지는 들어갈 �
   assert.match(toc.markdown, /### Ⅰ\. 군관리계획 결정\(안\)/);
   assert.equal(toc.flags.작성필요, 0);
 
-  const p8draft = out.parts.find((p) => p.id === 'pkg.8');
-  assert.equal(p8draft.built, false);
-  assert.match(p8draft.markdown, /> 아직 조립하지 않은 장입니다/);
-  const p6 = out.parts.find((p) => p.id === 'pkg.6');
-  assert.equal(p6.built, false);
-  assert.match(p6.markdown, /## 1\. 환경성 검토서\n\n- 자동 생성/);
-  const p8 = out.parts.find((p) => p.id === 'pkg.8');
-  assert.match(p8.markdown, /\[외부 자료 필요: 배수지 설계도\]/);
+  // 아직 조립기가 없는 장(검토서)은 '들어갈 재료' 초안
+  const env = out.parts.find((p) => p.id === 'env');
+  assert.equal(env.built, false);
+  assert.match(env.markdown, /> 아직 조립하지 않은 장입니다/);
+  assert.match(env.markdown, /\[외부 자료 필요: 환경현황조사/);
   assert.ok(out.parts.every((p) => !p.error), out.warnings.join('\n'));
   assert.equal(ctx.parcels.length, 8);
 });
@@ -435,6 +432,35 @@ test('표지 4종: 샘플 표지와 같은 줄 구성, 쪽 나눔, 날짜·로�
   require('fs').unlinkSync(png);
   // 미리보기에서 '---' 는 쪽 나눔 선
   assert.equal((markdownToHtml(md).match(/<hr class="page">/g) || []).length, 3);
+});
+
+test('Ⅵ. 기초자료 조사서·Ⅷ. 첨부서류: 간지와 자리, 검토서 장이 생기면 Ⅵ 에 들어간다', {
+  skip: skipUnless('설계1장', '결정안'), timeout: 600000,
+}, async () => {
+  const project = sampleProject();
+  project.design = project.design.filter((d) => /제1장/.test(d.file));
+  project.status = [];
+  const ctx = await prepare(project);
+  const out = composePackage(ctx);
+  const p6 = out.parts.find((p) => p.id === 'pkg.6');
+  assert.equal(p6.built, true);
+  assert.match(p6.markdown, /^# Ⅵ\. 기초자료 조사서\n\n1\. 환경성 검토서<br>2\. 교통성 검토서<br>3\. 경관성 검토서/);
+  assert.equal((p6.markdown.match(/\[작성 필요: (환경성|교통성|경관성) 검토서 — /g) || []).length, 3);
+  assert.equal((p6.markdown.match(/^---$/gm) || []).length, 2);
+  const p8 = out.parts.find((p) => p.id === 'pkg.8');
+  assert.match(p8.markdown, /^# Ⅷ\. 첨부서류\n\n◯ 배수지 설계도\n\n## ▣ 배수지 설계도\n\n### 교동배수지\n\n\*\*- 설계도면 -\*\*\n\n\[외부 자료 필요: 교동배수지 설계도면\]/);
+  assert.equal(p8.flags.외부자료, 2);
+
+  // 검토서 조립기가 등록되면 Ⅵ 에 그 내용이 들어간다(이후 장 작업용 고리)
+  const { BUILDERS } = require('../src/compose/chapters');
+  BUILDERS.env = () => '# 환경성검토서 본문';
+  try {
+    const again = composePackage(ctx).parts.find((p) => p.id === 'pkg.6').markdown;
+    assert.match(again, /# 환경성검토서 본문/);
+    assert.equal((again.match(/\[작성 필요: (환경성|교통성|경관성) 검토서 — /g) || []).length, 2);
+  } finally {
+    delete BUILDERS.env;
+  }
 });
 
 test('결정조서 일부만 뽑기: 사유서 칸 합치기를 다시 계산한다', () => {

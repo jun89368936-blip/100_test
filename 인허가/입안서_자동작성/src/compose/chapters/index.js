@@ -12,6 +12,7 @@ const { buildStatusChapter } = require('./status');
 const { buildWorksChapter } = require('./works');
 const { buildLandChapter } = require('./land');
 const { buildCover } = require('./cover');
+const { buildSurveyChapter, buildAttachmentChapter } = require('./appendix');
 
 const BUILDERS = {
   'pkg.toc': (ctx) => tocToMarkdown(buildToc(ctx.template, ctx.narrative.vars, 'pkg')),
@@ -22,7 +23,9 @@ const BUILDERS = {
   'pkg.3': buildPlansChapter,
   'pkg.4': buildStatusChapter,
   'pkg.5': buildWorksChapter,
+  'pkg.6': buildSurveyChapter,
   'pkg.7': buildLandChapter,
+  'pkg.8': buildAttachmentChapter,
 };
 
 module.exports = { BUILDERS };

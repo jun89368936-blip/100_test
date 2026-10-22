@@ -9,9 +9,9 @@
     { "id": "pkg.3", "title": "Ⅲ. 상위 및 관련계획 검토", "status": "완료", "todo": "상위계획·관련계획(설계보고서), 관련법규 검토", "note": "src/compose/chapters/plans.js. 관련계획은 목적·범위·이 사업 시설계획만 남김(템플릿 keep). 상위계획 본문(국토종합계획·도시기본계획)과 용도지역 판정은 직접 채움" },
     { "id": "pkg.4", "title": "Ⅳ. 현황 및 여건분석", "status": "완료", "todo": "일반 현황·인문사회(설계보고서), 시설별 현황분석(현황분석 보고서)", "note": "src/compose/chapters/status.js. 교동 현황분석 보고서 연결됨(표고·경사 값 0 — 도구 재실행 필요), 삼산 보고서는 아직 없음" },
     { "id": "pkg.5", "title": "Ⅴ. 배수시설 조성계획", "status": "완료", "todo": "계획의 개요·용수수요량·시설설계·건축·부분별·사업계획(설계보고서)", "note": "src/compose/chapters/works.js, 템플릿 parts. 건축·조경, 구역경계 사유도, 토지이용계획, 저감·교통처리계획, 예정공정표는 다른 도서에서 채움" },
-    { "id": "pkg.6", "title": "Ⅵ. 기초자료 조사서", "status": "대기", "todo": "검토서 3종 간지·참조" },
+    { "id": "pkg.6", "title": "Ⅵ. 기초자료 조사서", "status": "완료", "todo": "검토서 3종 간지·참조", "note": "src/compose/chapters/appendix.js. 검토서 장(env·traffic·landscape)을 만들면 자동으로 이 장에 들어감" },
     { "id": "pkg.7", "title": "Ⅶ. 편입토지조서 및 용지도", "status": "완료", "todo": "시설별 편입토지조서·지목별·소유자별 집계, 토지대장 자리", "note": "src/compose/chapters/land.js. 용지도는 project.json landmaps, 토지대장·용지번호는 외부 자료" },
-    { "id": "pkg.8", "title": "Ⅷ. 첨부서류", "status": "대기", "todo": "배수지 설계도 간지" },
+    { "id": "pkg.8", "title": "Ⅷ. 첨부서류", "status": "완료", "todo": "배수지 설계도 간지", "note": "src/compose/chapters/appendix.js. 설계도면은 project.json designs" },
     { "id": "env", "title": "환경성 검토서", "status": "대기", "todo": "사업개요·지역개황·영향예측(외부)·종합평가" },
     { "id": "traffic", "title": "교통성 검토서", "status": "대기", "todo": "서론·입안서 반복, 교통 조사는 외부 자료" },
     { "id": "landscape", "title": "경관성 검토서", "status": "대기", "todo": "개요·상위계획·경관현황(외부)·저감방안·종합평가" }
